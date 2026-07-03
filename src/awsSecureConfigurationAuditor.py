@@ -14,6 +14,7 @@ import sys
 import os
 import argparse
 import logging
+import boto3
 
 from pathlib import Path
 import textwrap
