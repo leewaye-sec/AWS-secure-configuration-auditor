@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 #=====================================
 # Base Class : BaseCheck
 #=====================================
-class BaseCheck(ABC):
+class BaseChecker(ABC):
     @abstractmethod
     def process(self, inventory):
             pass
