@@ -95,3 +95,17 @@ class AWSConfigInventory:
 class GuardDutyInventory:
     detectors: list = field(default_factory=list)
     publishing_configuration: list = field(default_factory=list)
+
+#------------------------
+# Data Class Definition : AuditFinding
+#   Use : Standardize and normalize Checks / Audit Findings
+#------------------------
+@dataclass
+class AuditFinding:
+    severity_level: str
+    finding_name: str
+    finding_description: str
+    service: str
+    resource_name: str
+    resource_type: str
+    recommendation: str
