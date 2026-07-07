@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS-secure-configuration-auditor IAM environment definition'
+
+Parameters:
+  ExternalAccountID:
+    Type: String
+    Description: '(Optional) Input a valid 12-digit AWS Account ID for the cross-account role testing. If left blank, it defaults to this account.'
+    Default: ''
+    AllowedPattern: '^(\d{12})?$'
+    ConstraintDescription: 'Must be a valid 12-digit AWS Account ID or left completely blank.'
+
+Conditions:
+  UseCurrentAccount: !Equals [ !Ref ExternalAccountID, '' ]
+
+Resources:
+  #-------------------------------------------------------------
+  # CUSTOM POLICIES
+  #-------------------------------------------------------------
+  DeveloperPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      Description: 'Standard development permissions'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ec2:Describe*'
+              - 's3:ListAllMyBuckets'
+              - 's3:GetBucketLocation'
+              - 'dynamodb:ListTables'
+            Resource: '*'
+
+  WildcardAllPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      Description: 'Wildcard Policy'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: '*'
+            Resource: '*'
+
+  #-------------------------------------------------------------
+  # IAM GROUP DEFINITIONS
+  #-------------------------------------------------------------
+  DevelopersGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'Developers'
+      ManagedPolicyArns:
+        - !Ref DeveloperPolicy
+
+  AdministratorsGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'Administrators'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AdministratorAccess'
+
+  ContractorsGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'Contractors'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+
+  BadAdminGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'BadAdmins'
+      ManagedPolicyArns:
+        - !Ref WildcardAllPolicy
+
+  #-------------------------------------------------------------
+  # IAM USER DEFINITIONS
+  #-------------------------------------------------------------
+  UserAlice:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'alice'
+      Groups:
+        - !Ref DevelopersGroup
+      LoginProfile:
+        Password: 'Password123!Alice'
+        PasswordResetRequired: false
+
+  UserBob:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'bob'
+      Groups:
+        - !Ref DevelopersGroup
+      LoginProfile:
+        Password: 'Password123!Bob'
+        PasswordResetRequired: false
+
+  UserCarol:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'carol'
+      Groups:
+        - !Ref DevelopersGroup
+      LoginProfile:
+        Password: 'Password123!Carol'
+        PasswordResetRequired: false
+
+  UserAdminTest:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'admin-test'
+      Groups:
+        - !Ref AdministratorsGroup
+      LoginProfile:
+        Password: 'Password123!Admin'
+        PasswordResetRequired: false
+
+  UserContractor:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'contractor'
+      Groups:
+        - !Ref ContractorsGroup
+      LoginProfile:
+        Password: 'Password123!Contractor'
+        PasswordResetRequired: false
+
+  UserUnused:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'unused-user'
+
+  UserBadAdmin:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'bad-admin'
+      Groups:
+        - !Ref BadAdminGroup
+      LoginProfile:
+        Password: 'Password123!BadAdmin'
+        PasswordResetRequired: false
+
+  #-------------------------------------------------------------
+  # INITIAL ACCESS KEYS
+  #-------------------------------------------------------------
+  User01Key:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserUser01
+
+  AdminKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserAdminTest
+
+  ContractorKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserContractor
+
+  UnusedKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserUnused
+
+  BadAdminKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserBadAdmin
+  #-------------------------------------------------------------
+  # ROLES
+  #-------------------------------------------------------------
+  AppDataReader:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'app-data-reader'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
+
+  BackgroundTaskLogger:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'background-task-logger'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+  AuditChecker:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'audit-checker'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/SecurityAudit'
+
+  ExternalUserAccess:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'external-user-access'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !If 
+                - UseCurrentAccount
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+                - !Sub 'arn:aws:iam::${ExternalAccountID}:root'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
