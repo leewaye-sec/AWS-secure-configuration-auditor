@@ -19,6 +19,7 @@ class IAMInventory:
     roles: list = field(default_factory=list)
     policies: list = field(default_factory=list)
     access_keys: list = field(default_factory=list)
+    login_profiles: list = field(default_factory=list)
     mfa_devices: list = field(default_factory=list)
 
 #------------------------

@@ -14,7 +14,7 @@ Conditions:
 
 Resources:
   #-------------------------------------------------------------
-  # CUSTOM POLICIES
+  # POLICY DEFINITIONS
   #-------------------------------------------------------------
   DeveloperPolicy:
     Type: 'AWS::IAM::ManagedPolicy'
@@ -144,10 +144,10 @@ Resources:
   #-------------------------------------------------------------
   # INITIAL ACCESS KEYS
   #-------------------------------------------------------------
-  User01Key:
+  UserAliceKey:
     Type: 'AWS::IAM::AccessKey'
     Properties:
-      UserName: !Ref UserUser01
+      UserName: !Ref UserAlice
 
   AdminKey:
     Type: 'AWS::IAM::AccessKey'

@@ -15,6 +15,7 @@ import os
 import argparse
 import logging
 import boto3
+from botocore.exceptions import ProfileNotFound, NoCredentialsError, ClientError
 
 from pathlib import Path
 import textwrap
@@ -36,6 +37,28 @@ CWD = CWD + "/"
 #--------------------------------------------------------------------------
 # Functions
 #--------------------------------------------------------------------------
+#==================
+# Wrapper function to hold audit collection/checking/results
+#==================
+def awsSecurityAuditWrapper(aws_profile):
+
+    #--------------------------
+    # Session Creation
+    #--------------------------
+    try:
+        logging.info(f"Creating session connection with passed profile [ {aws_profile} ]")
+
+        audit_session = boto3.Session(profile_name=aws_profile)
+
+    except ProfileNotFound:
+        logging.exception(f"Passed profile does not exist [ {aws_profile} ]")
+        logging.exception(f"Run 'aws configure list-profiles' for valid profiles")
+    except NoCredentialsError:
+        logging.error(f"Profile has no valid AWS credentials [ {aws_profile} ]")
+        logging.error(f"Run 'aws configure --profile {aws_profile}' to configure")
+    except ClientError as e:
+        logging.exception(f"AWS API Error encountered [ {e.response['Error']['Message']} ]")
+
 
 #==========================================================================
 # Main
@@ -62,7 +85,7 @@ def main():
     verbose_logging = False
 
     # Set some 'global' options
-    parser.add_argument("-a", "--aws", action="store_true", help="AWS environment to be audited")
+    parser.add_argument("-a", "--aws_profile", required=True, help="AWS Profile used for connection")
     parser.add_argument("-v", "--verbose", action="store_true", help="Logging output will be verbose")
     parser.add_argument('-p', '--print', action='store_true', help='Print results to STDOUT only')
     parser.add_argument('-o', '--output', help='Specify audit report path/name')
@@ -88,6 +111,12 @@ def main():
 
     # Determine print
     PRINT = args.print
+
+    #========================
+    # Begin Processing
+    #========================
+    awsSecurityAuditWrapper(args.aws_profile)
+
 
 if __name__ == "__main__":
     main()
