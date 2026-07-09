@@ -229,3 +229,155 @@ Resources:
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+
+  #-------------------------------------------------------------
+  # S3 BUCKETS
+  #-------------------------------------------------------------
+  #---------------------
+  # Company Backups (Expected Findings : None [COMPLIANT])
+  #---------------------
+  CompanyBackupsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'company-backups'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      VersioningConfiguration:
+        Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LoggingTargetBucket
+        LogFilePrefix: 'company-backups/'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Marketing Assets (Expected Findings: Public Bucket)
+  #---------------------
+  MarketingAssetsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'marketing-assets'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      VersioningConfiguration:
+        Status: Enabled
+      # Remove the firewall blocks so the bucket is public
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+
+  MarketingBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref MarketingAssetsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${MarketingAssetsBucket}/*'
+
+  #---------------------
+  # Archive Storage (Expected Findings: Encryption Disabled)
+  #---------------------
+  ArchiveStorageBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'archive-storage'
+      # Encryption property removed below
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Engineering Artifacts (Expected Findings: Logging Disabled)
+  #---------------------
+  EngineeringArtifactsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'engineering-artifacts'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      # Logging configuration removed below
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Finance Documents (Expected Findings: Versioning Disabled)
+  #---------------------
+  FinanceDocumentsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'finance-documents'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      # Versioning suspended
+      VersioningConfiguration:
+        Status: Suspended
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Sandbox Data (Expected Findings: Public ACL & Public Access Block Disabled)
+  #---------------------
+  SandboxDataBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'sandbox-data'
+      # Have to define PAB Configuration to have settings turned off
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      # To allow a public ACL, have to re-enable legacy ACL
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+
+  # Legacy Public ACL
+  SandboxPublicACL:
+    Type: 'AWS::S3::BucketAcl'
+    Properties:
+      Bucket: !Ref SandboxDataBucket
+      AccessControl: PublicRead
+
+  #-------------------------------------------------------------
+  # UTILITY: LOGGING TARGET BUCKET
+  #-------------------------------------------------------------
+  LoggingTargetBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 's3-access-logs'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
