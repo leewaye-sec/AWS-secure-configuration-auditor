@@ -14,6 +14,21 @@ Conditions:
 
 Resources:
   #-------------------------------------------------------------
+  # IAM INSTANCE PROFILES
+  #-------------------------------------------------------------
+  # Instances cannot directly hold a Role; they must use an Instance Profile container.
+  AppServerInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - 'EC2-App-Role' # Matches your original EC2 role name
+
+  DatabaseInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref DatabaseRole
+  #-------------------------------------------------------------
   # POLICY DEFINITIONS
   #-------------------------------------------------------------
   DeveloperPolicy:
@@ -168,6 +183,16 @@ Resources:
     Type: 'AWS::IAM::AccessKey'
     Properties:
       UserName: !Ref UserBadAdmin
+
+  ProductionSSHKey:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: 'ProductionSSH'
+
+    DevelopmentSSHKey:
+      Type: 'AWS::EC2::KeyPair'
+      Properties:
+        KeyName: 'DevelopmentSSH'
   #-------------------------------------------------------------
   # ROLES
   #-------------------------------------------------------------
@@ -229,6 +254,20 @@ Resources:
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+
+  DatabaseRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'database-access-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess'
 
   #-------------------------------------------------------------
   # S3 BUCKETS
@@ -381,3 +420,186 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+
+  #-------------------------------------------------------------
+  # SECURITY GROUPS
+  #-------------------------------------------------------------
+  WebServerSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allow public HTTP/HTTPS traffic'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  ApplicationSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Internal application layer only'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !GetAtt WebServerSG.GroupId
+
+  DatabaseSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Database layer restricted to application server tier'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !GetAtt ApplicationSG.GroupId
+
+  LegacySG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'CRITICAL FINDING: Insecure publicly exposed SSH management port'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  #-------------------------------------------------------------
+  # EC2 INSTANCES
+  #-------------------------------------------------------------
+  #---------------------
+  # Web Server (Expected Findings : None [COMPLIANT])
+  #---------------------
+  WebServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0 # Dummy placeholder standard Linux AMI
+      KeyName: !Ref ProductionSSHKey
+      SecurityGroupIds:
+        - !GetAtt WebServerSG.GroupId
+      IamInstanceProfile: !Ref AppServerInstanceProfile
+      # IMDSv2 Enforcement
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - Key: Name
+          Value: web-server-01
+
+  #---------------------
+  # Application Server (Expected Findings : None [COMPLIANT])
+  #---------------------
+  AppServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0
+      SecurityGroupIds:
+        - !GetAtt ApplicationSG.GroupId
+      IamInstanceProfile: !Ref AppServerInstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - Key: Name
+          Value: app-server-01
+
+  #---------------------
+  # Legacy Server (Expected Findings : Public SSH & IMDSv2 Disabled)
+  #---------------------
+  LegacyServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0
+      KeyName: !Ref DevelopmentSSHKey
+      SecurityGroupIds:
+        - !GetAtt LegacySG.GroupId
+      # IMDSv2 Disabled (Set to optional to allow legacy fallback IMDSv1 tokenless access)
+      MetadataOptions:
+        HttpTokens: optional
+      Tags:
+        - Key: Name
+          Value: legacy-server-01
+
+  #---------------------
+  # Database Server (Expected Findings : Unencrypted EBS via separate storage volume)
+  #---------------------
+  DbServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0
+      SecurityGroupIds:
+        - !GetAtt DatabaseSG.GroupId
+      IamInstanceProfile: !Ref DatabaseInstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - Key: Name
+          Value: db-server-01
+
+  #-------------------------------------------------------------
+  # EBS VOLUMES & ATTACHMENTS
+  #-------------------------------------------------------------
+  WebVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 10
+      AvailabilityZone: !GetAtt WebServer01.AvailabilityZone
+      Encrypted: true
+
+  WebVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref WebServer01
+      VolumeId: !Ref WebVolume
+      Device: /dev/sdh
+
+  AppVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 10
+      AvailabilityZone: !GetAtt AppServer01.AvailabilityZone
+      Encrypted: true
+
+  AppVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref AppServer01
+      VolumeId: !Ref AppVolume
+      Device: /dev/sdh
+
+  LegacyVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 10
+      AvailabilityZone: !GetAtt LegacyServer01.AvailabilityZone
+      Encrypted: true
+
+  LegacyVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref LegacyServer01
+      VolumeId: !Ref LegacyVolume
+      Device: /dev/sdh
+
+  #---------------------
+  # Expected Vulnerability Finding: Volume unencrypted
+  #---------------------
+  DatabaseVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 20
+      AvailabilityZone: !GetAtt DbServer01.AvailabilityZone
+      Encrypted: false # <--- Triggers the audit alert flag
+
+  DatabaseVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref DbServer01
+      VolumeId: !Ref DatabaseVolume
+      Device: /dev/sdh
