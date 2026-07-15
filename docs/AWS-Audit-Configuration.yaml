@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'AWS-secure-configuration-auditor IAM environment definition'
 
 Parameters:
-  ExternalAccountID:
+  ExternalAccountId:
     Type: String
     Description: '(Optional) Input a valid 12-digit AWS Account ID for the cross-account role testing. If left blank, it defaults to this account.'
     Default: ''
@@ -10,18 +10,18 @@ Parameters:
     ConstraintDescription: 'Must be a valid 12-digit AWS Account ID or left completely blank.'
 
 Conditions:
-  UseCurrentAccount: !Equals [ !Ref ExternalAccountID, '' ]
+  UseCurrentAccount: !Equals [ !Ref ExternalAccountId, '' ]
 
 Resources:
   #-------------------------------------------------------------
   # IAM INSTANCE PROFILES
+  #   Instances cannot directly hold a Role; they must use an Instance Profile container.
   #-------------------------------------------------------------
-  # Instances cannot directly hold a Role; they must use an Instance Profile container.
   AppServerInstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Roles:
-        - 'EC2-App-Role' # Matches your original EC2 role name
+        - !Ref EC2AppRole
 
   DatabaseInstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
@@ -189,13 +189,27 @@ Resources:
     Properties:
       KeyName: 'ProductionSSH'
 
-    DevelopmentSSHKey:
-      Type: 'AWS::EC2::KeyPair'
-      Properties:
-        KeyName: 'DevelopmentSSH'
+  DevelopmentSSHKey:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: 'DevelopmentSSH'
   #-------------------------------------------------------------
   # ROLES
   #-------------------------------------------------------------
+  EC2AppRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'EC2-App-Role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
+
   AppDataReader:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -250,7 +264,7 @@ Resources:
               AWS: !If 
                 - UseCurrentAccount
                 - !Sub 'arn:aws:iam::${AWS::AccountId}:root'
-                - !Sub 'arn:aws:iam::${ExternalAccountID}:root'
+                - !Sub 'arn:aws:iam::${ExternalAccountId}:root'
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
@@ -270,6 +284,23 @@ Resources:
         - 'arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess'
 
   #-------------------------------------------------------------
+  # UTILITY: LOGGING TARGET BUCKET
+  #-------------------------------------------------------------
+  LoggingTargetBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 's3-access-logs-01-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #-------------------------------------------------------------
   # S3 BUCKETS
   #-------------------------------------------------------------
   #---------------------
@@ -278,7 +309,7 @@ Resources:
   CompanyBackupsBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: 'company-backups'
+      BucketName: !Sub 'company-backups-01-${AWS::AccountId}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -287,7 +318,7 @@ Resources:
         Status: Enabled
       LoggingConfiguration:
         DestinationBucketName: !Ref LoggingTargetBucket
-        LogFilePrefix: 'company-backups/'
+        LogFilePrefix: 'company-backups-01/'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -300,14 +331,13 @@ Resources:
   MarketingAssetsBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: 'marketing-assets'
+      BucketName: !Sub 'marketing-assets-01-${AWS::AccountId}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
       VersioningConfiguration:
         Status: Enabled
-      # Remove the firewall blocks so the bucket is public
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: false
@@ -333,8 +363,7 @@ Resources:
   ArchiveStorageBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: 'archive-storage'
-      # Encryption property removed below
+      BucketName: !Sub 'archive-storage-01-${AWS::AccountId}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -347,12 +376,11 @@ Resources:
   EngineeringArtifactsBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: 'engineering-artifacts'
+      BucketName: !Sub 'engineering-artifacts-01-${AWS::AccountId}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
-      # Logging configuration removed below
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -365,12 +393,11 @@ Resources:
   FinanceDocumentsBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: 'finance-documents'
+      BucketName: !Sub 'finance-documents-01-${AWS::AccountId}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'AES256'
-      # Versioning suspended
       VersioningConfiguration:
         Status: Suspended
       PublicAccessBlockConfiguration:
@@ -385,41 +412,25 @@ Resources:
   SandboxDataBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: 'sandbox-data'
-      # Have to define PAB Configuration to have settings turned off
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-      # To allow a public ACL, have to re-enable legacy ACL
-      OwnershipControls:
-        Rules:
-          - ObjectOwnership: BucketOwnerPreferred
-
-  # Legacy Public ACL
-  SandboxPublicACL:
-    Type: 'AWS::S3::BucketAcl'
-    Properties:
-      Bucket: !Ref SandboxDataBucket
-      AccessControl: PublicRead
-
-  #-------------------------------------------------------------
-  # UTILITY: LOGGING TARGET BUCKET
-  #-------------------------------------------------------------
-  LoggingTargetBucket:
-    Type: 'AWS::S3::Bucket'
-    Properties:
-      BucketName: 's3-access-logs'
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: 'AES256'
+      BucketName: !Sub 'sandbox-data-01-${AWS::AccountId}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
-        BlockPublicPolicy: true
+        BlockPublicPolicy: false
         IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+        RestrictPublicBuckets: false
+
+  SandboxBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref SandboxDataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicSandboxExposure
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${SandboxDataBucket}/*'
 
   #-------------------------------------------------------------
   # SECURITY GROUPS
@@ -595,7 +606,7 @@ Resources:
     Properties:
       Size: 20
       AvailabilityZone: !GetAtt DbServer01.AvailabilityZone
-      Encrypted: false # <--- Triggers the audit alert flag
+      Encrypted: false
 
   DatabaseVolumeAttachment:
     Type: 'AWS::EC2::VolumeAttachment'

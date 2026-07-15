@@ -30,7 +30,6 @@ class EC2Collector(BaseCollector):
         ec2_inventory.ebs_volumes = self.collect_ebs_volumes(ec2_resource)
         ec2_inventory.metadata_options = self.collect_metadata_options(ec2_client)
         ec2_inventory.key_pairs = self.collect_key_pairs(ec2_client)
-        ec2_inventory.roles = self.collect_instance_roles()
 
         return ec2_inventory
 

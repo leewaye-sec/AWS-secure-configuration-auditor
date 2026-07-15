@@ -61,7 +61,7 @@ class ConsoleAccessCheck(BaseChecker):
 #------------------------
 # Class Definition : UnusedUserCheck
 #------------------------
-class ConsoleAccessCheck(BaseChecker):
+class UnusedUserCheck(BaseChecker):
     def process(self, inventory):
         pass
 
