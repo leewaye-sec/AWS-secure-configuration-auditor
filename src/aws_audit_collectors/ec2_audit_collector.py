@@ -16,12 +16,12 @@ from ..AWSStandardizedDataStructures import EC2Inventory
 #------------------------
 class EC2Collector(BaseCollector):
     # Define the collection checks
-    def collect(self):
+    def collect(self, session):
         ec2_inventory = EC2Inventory()
 
         # Initialize the EC2 client and resource
-        ec2_resource = boto3.resource('ec2', region_name='us-east''1')
-        ec2_client = boto3.client('ec2', region_name='us-east''1')
+        ec2_resource = session.resource('ec2', region_name='us-east''1')
+        ec2_client = session.client('ec2', region_name='us-east''1')
 
         # Begin collection
         ec2_inventory.instances = self.collect_instances(ec2_resource)

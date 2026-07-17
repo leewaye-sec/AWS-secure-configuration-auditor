@@ -25,12 +25,12 @@ class S3Collector(BaseCollector):
 
         # Begin collection
         s3_inventory.buckets = self.collect_buckets(s3_resources)
-        s3_inventory.bucket_policies = self.collect_bucket_policies(s3_resources)
-        s3_inventory.acls = self.collect_acls(s3_resources)
+        s3_inventory.bucket_policies = self.collect_bucket_policies(s3_resources, s3_client)
+        s3_inventory.acls = self.collect_acls(s3_resources, s3_client)
         s3_inventory.public_access_block = self.collect_public_access_block(s3_resources, s3_client)
         s3_inventory.encryption = self.collect_encryption(s3_resources, s3_client)
         s3_inventory.versioning = self.collect_versioning(s3_resources)
-        s3_inventory.logging = self.collect_logging(s3_resources)
+        s3_inventory.logging = self.collect_logging(s3_resources, s3_client)
 
         return s3_inventory
 
@@ -39,40 +39,49 @@ class S3Collector(BaseCollector):
         return resource.buckets.all()
 
     # Return list of dictionaries
-    def collect_bucket_policies(self, resource):
+    def collect_bucket_policies(self, resource, client):
         # Gather buckets
         buckets = resource.buckets.all()
         collected_policies = []
         # Loop through and grab bucket name and policies
         for bucket in buckets:
             name = bucket.name
-            policy_response = resource.BucketPolicy(name)
-            bucket_policy = {
-                "bucket_name": name,
-                "bucket_policy": policy_response
-            }
-            collected_policies.append(bucket_policy)
+            try:
+                # Gather policies associated with bucket
+                policy_response = client.get_bucket_policy(Bucket=name)
+                # Add to policy dict
+                bucket_policy = {
+                    "bucket_name": name,
+                    "bucket_policy": policy_response
+                }
+                collected_policies.append(bucket_policy)
+            except ClientError as e:
+                # Add empty policy dict
+                bucket_policy = {
+                    "bucket_name": name,
+                    "bucket_policy": None
+                }
+                collected_policies.append(bucket_policy)
 
         return collected_policies
 
-    def collect_acls(self, resource):
+    def collect_acls(self, resource, client):
         # Gather buckets
         buckets = resource.buckets.all()
         collected_acls = []
-        # Loop through and grab bucket name and policies
+        # Loop through and grab bucket name and acl policies
+        #   If no policy associated, save none
         for bucket in buckets:
             name = bucket.name
             # Grab acl policy
-            bucket_acl = bucket.Acl()
-
-            # If acl was returned
-            if bucket_acl:
+            try:
+                bucket_acl = client.get_bucket_acl(Bucket=name)
                 acl = {
-                    "bucket_name" : name,
-                    "bucket_acl" : bucket_acl
+                    "bucket_name": name,
+                    "bucket_acl": bucket_acl
                 }
                 collected_acls.append(acl)
-            else:
+            except ClientError as e:
                 acl = {
                     "bucket_name": name,
                     "bucket_acl": None
@@ -139,7 +148,7 @@ class S3Collector(BaseCollector):
         collected_versioning = []
         for bucket in buckets:
             name = bucket.name
-            version = bucket.Versioning()
+            version = resource.BucketVersioning(name)
 
             if version:
                 bucket_version = {
@@ -156,14 +165,14 @@ class S3Collector(BaseCollector):
 
         return collected_versioning
 
-    def collect_logging(self, resource):
+    def collect_logging(self, resource, client):
         # Gather buckets
         buckets = resource.buckets.all()
 
         collected_versioning = []
         for bucket in buckets:
             name = bucket.name
-            logging = resource.BucketLogging(name)
+            logging = client.get_bucket_logging(Bucket=name)
 
             if logging:
                 bucket_logging = {
