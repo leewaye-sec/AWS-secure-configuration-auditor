@@ -96,17 +96,23 @@ aws-security-configuration-auditor/
 ├── LICENSE
 │
 ├── docs/
+    └── AWS-Audit-Configuration.yaml
 ├── examples/
 ├── reports/
-│
 └── src/
-    ├── main.py
-    ├── models.py
+    ├── awsSecureConfigurationAuditor.py
+    ├── AWSStandardizedDataStructures.py
     ├── reporting.py
-    ├── aws_client.py
-    │
-    ├── collectors/
-    └── checks/
+    ├── aws_audit_collectors/
+        ├── baseCollector.py
+        ├── iam_audit_collector.py
+        ├── ec2_audit_collector.py
+        └── s3_audit_collector.py
+    └── aws_audit_checkerss/
+        ├── baseChecker.py
+        ├── iam_audit_checker.py
+        ├── ec2_audit_checker.py
+        └── s3_audit_checker.py
 ```
 
 ---
@@ -115,9 +121,9 @@ aws-security-configuration-auditor/
 
 - [x] Project planning
 - [x] Initial repository structure
-- [ ] AWS IAM research
-- [ ] boto3 integration
-- [ ] IAM resource collection
+- [x] AWS IAM research
+- [x] boto3 integration
+- [x] IAM resource collection
 - [ ] IAM security checks
 - [ ] Findings model
 - [ ] JSON reporting
@@ -134,6 +140,7 @@ aws-security-configuration-auditor/
 - AWS IAM
 - Amazon S3
 - Amazon EC2
+- AWS CloudFormation
 - AWS CloudTrail
 - AWS Config
 - JSON
