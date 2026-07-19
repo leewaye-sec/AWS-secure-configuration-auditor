@@ -6,30 +6,27 @@
 #
 #==========================================================================
 # Import base detector
-import boto3
-
 from .baseCollector import BaseCollector
 from ..AWSStandardizedDataStructures import EC2Inventory
+from ..awsAuditSession import AWSAuditSession
 
 #------------------------
 # Class Definition : EC2Collector
 #------------------------
 class EC2Collector(BaseCollector):
     # Define the collection checks
-    def collect(self, session):
+    def collect(self, session: AWSAuditSession):
+
+        # Define inventory
         ec2_inventory = EC2Inventory()
 
-        # Initialize the EC2 client and resource
-        #ec2_resource = session.resource('ec2', region_name='us-east-1')
-        ec2_client = session.client('ec2', region_name='us-east-1')
-
         # Begin collection
-        ec2_inventory.instances = self.collect_instances(ec2_client)
-        ec2_inventory.security_groups = self.collect_security_groups(ec2_client)
-        ec2_inventory.network_interfaces = self.collect_network_interfaces(ec2_client)
-        ec2_inventory.ebs_volumes = self.collect_ebs_volumes(ec2_client)
-        ec2_inventory.metadata_options = self.collect_metadata_options(ec2_client)
-        ec2_inventory.key_pairs = self.collect_key_pairs(ec2_client)
+        ec2_inventory.instances = self.collect_instances(session.ec2_client)
+        ec2_inventory.security_groups = self.collect_security_groups(session.ec2_client)
+        ec2_inventory.network_interfaces = self.collect_network_interfaces(session.ec2_client)
+        ec2_inventory.ebs_volumes = self.collect_ebs_volumes(session.ec2_client)
+        #ec2_inventory.metadata_options = self.collect_metadata_options(session.ec2_client)
+        ec2_inventory.key_pairs = self.collect_key_pairs(session.ec2_client)
 
         return ec2_inventory
 

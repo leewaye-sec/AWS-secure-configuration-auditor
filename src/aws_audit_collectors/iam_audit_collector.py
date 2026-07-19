@@ -9,26 +9,26 @@
 import boto3
 from .baseCollector import BaseCollector
 from ..AWSStandardizedDataStructures import IAMInventory
+from ..awsAuditSession import AWSAuditSession
 
 #------------------------
 # Class Definition : IAMCollector
 #------------------------
 class IAMCollector(BaseCollector):
     # Define the collection checks
-    def collect(self, session):
+    def collect(self, session: AWSAuditSession):
+
+        # Define inventory
         iam_inventory = IAMInventory()
 
-        # Gather client information
-        iam_client = session.client("iam")
-
         # Begin collection
-        iam_inventory.users = self.collect_users(iam_client)
-        iam_inventory.groups = self.collect_groups(iam_client)
-        iam_inventory.roles = self.collect_roles(iam_client)
-        iam_inventory.policies = self.collect_policies(iam_client)
-        iam_inventory.access_keys = self.collect_access_keys(iam_client)
-        iam_inventory.login_profiles = self.collect_login_profiles(iam_client)
-        iam_inventory.mfa_devices = self.collect_mfa_devices(iam_client)
+        iam_inventory.users = self.collect_users(session.iam_client)
+        iam_inventory.groups = self.collect_groups(session.iam_client)
+        iam_inventory.roles = self.collect_roles(session.iam_client)
+        iam_inventory.policies = self.collect_policies(session.iam_client)
+        iam_inventory.access_keys = self.collect_access_keys(session.iam_client)
+        iam_inventory.login_profiles = self.collect_login_profiles(session.iam_client)
+        iam_inventory.mfa_devices = self.collect_mfa_devices(session.iam_client)
 
         return iam_inventory
 

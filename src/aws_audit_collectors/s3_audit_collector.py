@@ -10,27 +10,26 @@ import boto3
 from botocore.exceptions import ClientError
 from .baseCollector import BaseCollector
 from ..AWSStandardizedDataStructures import S3Inventory
+from ..awsAuditSession import AWSAuditSession
 
 #------------------------
 # Class Definition : S3Collector
 #------------------------
 class S3Collector(BaseCollector):
     # Define the collection checks
-    def collect(self, session):
+    def collect(self, session: AWSAuditSession):
+
+        # Define inventory
         s3_inventory = S3Inventory()
 
-        # Gather S3 client / resources
-        s3_client = session.client('s3')
-        s3_resources = session.resource('s3')
-
         # Begin collection
-        s3_inventory.buckets = self.collect_buckets(s3_resources)
-        s3_inventory.bucket_policies = self.collect_bucket_policies(s3_resources, s3_client)
-        s3_inventory.acls = self.collect_acls(s3_resources, s3_client)
-        s3_inventory.public_access_block = self.collect_public_access_block(s3_resources, s3_client)
-        s3_inventory.encryption = self.collect_encryption(s3_resources, s3_client)
-        s3_inventory.versioning = self.collect_versioning(s3_resources)
-        s3_inventory.logging = self.collect_logging(s3_resources, s3_client)
+        s3_inventory.buckets = self.collect_buckets(session.s3_resource)
+        s3_inventory.bucket_policies = self.collect_bucket_policies(session.s3_resource, session.s3_client)
+        s3_inventory.acls = self.collect_acls(session.s3_resource, session.s3_client)
+        s3_inventory.public_access_block = self.collect_public_access_block(session.s3_resource, session.s3_client)
+        s3_inventory.encryption = self.collect_encryption(session.s3_resource, session.s3_client)
+        s3_inventory.versioning = self.collect_versioning(session.s3_resource)
+        s3_inventory.logging = self.collect_logging(session.s3_resource, session.s3_client)
 
         return s3_inventory
 

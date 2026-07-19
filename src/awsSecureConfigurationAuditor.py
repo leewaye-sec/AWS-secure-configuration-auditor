@@ -16,10 +16,15 @@ import argparse
 import logging
 import boto3
 from botocore.exceptions import ProfileNotFound, NoCredentialsError, ClientError
-
 from pathlib import Path
 import textwrap
 from datetime import datetime
+
+#--------------------
+# Class Imports
+#--------------------
+from awsAuditSession import AWSAuditSession
+from awsCollector import AWSCollectors
 
 #--------------------
 # Global Variables
@@ -48,7 +53,20 @@ def awsSecurityAuditWrapper(aws_profile):
     try:
         logging.info(f"Creating session connection with passed profile [ {aws_profile} ]")
 
-        audit_session = boto3.Session(profile_name=aws_profile)
+        #--------------------------
+        # Create AWS Session
+        #--------------------------
+        audit_session = AWSAuditSession(aws_profile)
+
+        #--------------------------
+        # Create inventories via AWSCollectors
+        #--------------------------
+        collector_engine = AWSCollectors()
+        collected_inventories = collector_engine.collect(audit_session)
+
+        #--------------------------
+        # Work through checks
+        #--------------------------
 
     except ProfileNotFound:
         logging.exception(f"Passed profile does not exist [ {aws_profile} ]")
