@@ -7,71 +7,79 @@
 #==========================================================================
 # Import base detector
 from .baseChecker import BaseChecker
+from collections.abc import Callable
 from ..AWSStandardizedDataStructures import AuditFinding
 from ..AWSStandardizedDataStructures import S3Inventory
 
 #------------------------
-# Class Definition : PublicBucketCheck
+# Class Definition : IAMAuditEngine()
 #------------------------
-class PublicBucketCheck(BaseChecker):
-    def process(self, inventory: S3Inventory):
-        pass
-    # Notes:
-    #   try:
-    #       pab_configuration = bucket_pab.get('PublicAccessBlockConfiguration')
-    #   except ClientError as e:
-    #       if e.response["Error"]["Code"] == "NoSuchPublicAccessBlockConfiguration":
-    #           Unconfigured / disabled
+class S3AuditEngine(BaseChecker):
+    # Initial Class Definition to include class functions
+    def __init__(self):
+        self.s3_audit_checks: list[Callable[[S3Inventory], list]] = [
+            self.public_bucket_check,
+            self.bucket_encryption_check,
+            self.bucket_versioning_check,
+            self.bucket_logging_check,
+            self.bucket_acl_check,
+            self.bucket_ownership_check
+        ]
 
-#------------------------
-# Class Definition : BucketEncryptionCheck
-#------------------------
-class BucketEncryptionCheck(BaseChecker):
-    def process(self, inventory: S3Inventory):
-        pass
-    # Notes:
-    #   Encryption rule and defaults:
-    #   try:
-    #       encryption_rule = bucket_encryption["ServerSideEncryptionConfiguration"]["Rules"][0]
-    #       encryption_defaults = encryption_rule.get("ApplyServerSideEncryptionByDefault", {})
-    #   except ClientError as e:
-    #       if e.response["Error"]["Code"] == "ServerSideEncryptionConfigurationNotFoundError":
-    #           # Encryption is disabled/default
+    #--------------------------
+    # Main driver function
+    #--------------------------
+    def audit(self, inventory: S3Inventory):
+        # Array to hold findings
+        audit_findings = []
 
-#------------------------
-# Class Definition : BucketVersioningCheck
-#------------------------
-class BucketVersioningCheck(BaseChecker):
-    def process(self, inventory: S3Inventory):
-        pass
-    # Notes: bucket.Versioning().status
+        # Work through the checks
+        for audit_check in self.s3_audit_checks:
+            audit_findings.extend(audit_check(inventory))
 
-#------------------------
-# Class Definition : BucketLoggingCheck
-#------------------------
-class BucketLoggingCheck(BaseChecker):
-    def process(self, inventory: S3Inventory):
-        pass
-    # Notes:
-    #   Checks:
-    #       - Logging configuration removed or missing  (logging == None)
-    #       - Logging disabled
-    #           try:
-    #               bucket_logging.load()
-    #               if bucket_logging.logging_enabled:
-    #               ...
+        return audit_findings
 
-#------------------------
-# Class Definition : BucketACLCheck
-#------------------------
-class BucketACLCheck(BaseChecker):
-    def process(self, inventory: S3Inventory):
-        pass
+    #------------------------
+    # Helper functions
+    #------------------------
+    def public_bucket_check(self, inventory: S3Inventory) -> list[AuditFinding]:
+        # Notes:
+        #   try:
+        #       pab_configuration = bucket_pab.get('PublicAccessBlockConfiguration')
+        #   except ClientError as e:
+        #       if e.response["Error"]["Code"] == "NoSuchPublicAccessBlockConfiguration":
+        #           Unconfigured / disabled
+        return []
 
-#------------------------
-# Class Definition : BucketOwnershipCheck
-#------------------------
-class BucketOwnershipCheck(BaseChecker):
-    def process(self, inventory: S3Inventory):
-        pass
+    def bucket_encryption_check(self, inventory: S3Inventory) -> list[AuditFinding]:
+        # Notes:
+        #   Encryption rule and defaults:
+        #   try:
+        #       encryption_rule = bucket_encryption["ServerSideEncryptionConfiguration"]["Rules"][0]
+        #       encryption_defaults = encryption_rule.get("ApplyServerSideEncryptionByDefault", {})
+        #   except ClientError as e:
+        #       if e.response["Error"]["Code"] == "ServerSideEncryptionConfigurationNotFoundError":
+        #           # Encryption is disabled/default
+        return []
+
+    def bucket_versioning_check(self, inventory: S3Inventory) -> list[AuditFinding]:
+        # Notes: bucket.Versioning().status
+        return []
+
+    def bucket_logging_check(self, inventory: S3Inventory) -> list[AuditFinding]:
+        # Notes:
+        #   Checks:
+        #       - Logging configuration removed or missing  (logging == None)
+        #       - Logging disabled
+        #           try:
+        #               bucket_logging.load()
+        #               if bucket_logging.logging_enabled:
+        #               ...
+        return []
+
+    def bucket_acl_check(self, inventory: S3Inventory) -> list[AuditFinding]:
+        return []
+
+    def bucket_ownership_check(self, inventory: S3Inventory) -> list[AuditFinding]:
+        return []
 

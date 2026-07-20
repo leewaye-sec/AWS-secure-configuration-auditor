@@ -7,47 +7,56 @@
 #==========================================================================
 # Import base detector
 from .baseChecker import BaseChecker
+from collections.abc import Callable
+from ..AWSStandardizedDataStructures import EC2Inventory
 from ..AWSStandardizedDataStructures import AuditFinding
 
 #------------------------
-# Class Definition : OpenSSHCheck
+# Class Definition : EC2AuditEngine()
 #------------------------
-class OpenSSHCheck(BaseChecker):
-    def process(self, inventory):
-        pass
+class EC2AuditEngine(BaseChecker):
+    # Initial Class Definition to include class functions
+    def __init__(self):
+        self.ec2_audit_checks: list[Callable[[EC2Inventory], list]] = [
+            self.open_ssh_check,
+            self.open_rdp_check,
+            self.open_database_check,
+            self.imdsv2_check,
+            self.ebs_encryption_check,
+            self.public_ip_check
+        ]
 
-#------------------------
-# Class Definition : OpenRDPCheck
-#------------------------
-class OpenRDPCheck(BaseChecker):
-    def process(self, inventory):
-        pass
+    #--------------------------
+    # Main driver function
+    #--------------------------
+    def audit(self, inventory: EC2Inventory):
+        # Array to hold findings
+        audit_findings = []
 
-#------------------------
-# Class Definition : OpenDatabaseCheck
-#------------------------
-class OpenDatabaseCheck(BaseChecker):
-    def process(self, inventory):
-        pass
+        # Work through the checks
+        for audit_check in self.ec2_audit_checks:
+            audit_findings.extend(audit_check(inventory))
 
-#------------------------
-# Class Definition : IMDSv2Check
-#------------------------
-class IMDSv2Check(BaseChecker):
-    def process(self, inventory):
-        pass
+        return audit_findings
 
-#------------------------
-# Class Definition : EBSEncryptionCheck
-#------------------------
-class EBSEncryptionCheck(BaseChecker):
-    def process(self, inventory):
-        pass
+    #--------------------------
+    # Helper function
+    #--------------------------
+    def open_ssh_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
+        return []
 
-#------------------------
-# Class Definition : PublicIPCheck
-#------------------------
-class PublicIPCheck(BaseChecker):
-    def process(self, inventory):
-        pass
+    def open_rdp_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
+        return []
+
+    def open_database_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
+        return []
+
+    def imdsv2_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
+        return []
+
+    def ebs_encryption_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
+        return []
+
+    def public_ip_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
+        return []
 

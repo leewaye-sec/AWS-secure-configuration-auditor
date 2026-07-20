@@ -25,6 +25,7 @@ from datetime import datetime
 #--------------------
 from awsAuditSession import AWSAuditSession
 from awsCollector import AWSCollectors
+from awsAuditEngine import AWSAuditEngine
 
 #--------------------
 # Global Variables
@@ -67,13 +68,16 @@ def awsSecurityAuditWrapper(aws_profile):
         #--------------------------
         # Work through checks
         #--------------------------
+        aws_auditor_findings = AWSAuditEngine().audit(collected_inventories)
 
     except ProfileNotFound:
         logging.exception(f"Passed profile does not exist [ {aws_profile} ]")
         logging.exception(f"Run 'aws configure list-profiles' for valid profiles")
+
     except NoCredentialsError:
         logging.error(f"Profile has no valid AWS credentials [ {aws_profile} ]")
         logging.error(f"Run 'aws configure --profile {aws_profile}' to configure")
+
     except ClientError as e:
         logging.exception(f"AWS API Error encountered [ {e.response['Error']['Message']} ]")
 

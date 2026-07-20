@@ -14,5 +14,5 @@ from abc import ABC, abstractmethod
 #=====================================
 class BaseChecker(ABC):
     @abstractmethod
-    def process(self, inventory):
+    def audit(self, inventory):
             pass
