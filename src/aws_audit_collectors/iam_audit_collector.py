@@ -29,6 +29,7 @@ class IAMCollector(BaseCollector):
         iam_inventory.access_keys = self.collect_access_keys(session.iam_client)
         iam_inventory.login_profiles = self.collect_login_profiles(session.iam_client)
         iam_inventory.mfa_devices = self.collect_mfa_devices(session.iam_client)
+        iam_inventory.account_summary = self.collect_summary(session.iam_client)
 
         return iam_inventory
 
@@ -36,16 +37,79 @@ class IAMCollector(BaseCollector):
     # Helper functions
     #========================================
     #--------------------
-    # Collect Users : returns list
+    # Collect Users / User Info: returns list of dictionaries
     #--------------------
     def collect_users(self, client):
-        return client.list_users()['Users']
+        #------------------------
+        # Gather users
+        #------------------------
+        user_information = []
+        users_present = client.list_users()['Users']
+
+        #------------------------
+        # Gather user information
+        #------------------------
+        for user in users_present:
+            username = user['UserName']
+
+            # User Policies
+            user_policy = client.list_attached_user_policies(UserName=username)
+
+            # User Group Membership
+            user_groups = None
+            try:
+                user_groups = client.list_groups_for_user(UserName=username)
+            except:
+                user_groups = None
+
+            # Gather console access
+            user_console_access = False
+            try:
+                client.get_login_profile(UserName=username)
+                user_console_access = True
+            except:
+                pass
+
+            # Update user information
+            user_policy_def = {
+                "username": username,
+                "user_info": user,
+                "policies": user_policy,
+                "groups": user_groups,
+                "console_access": user_console_access
+            }
+            user_information.append(user_policy_def)
+
+
+        return user_information
 
     #--------------------
-    # Collect Groups : returns list
+    # Collect Groups : returns list of
     #--------------------
     def collect_groups(self, client):
-        return client.list_groups()['Groups']
+        #------------------------
+        # Gather groups
+        #------------------------
+        groups_present = client.list_groups()['Groups']
+        groups_information = []
+
+        #------------------------
+        # Gather Group Policies
+        #------------------------
+        for group in groups_present:
+            group_name = group['GroupName']
+
+            # Gather group policies
+            group_policies = client.list_attached_group_policies(GroupName=group_name).get('AttachedPolicies', [])
+
+            group_info = {
+                "group_name": group_name,
+                "group_info": group,
+                "group_policies": group_policies
+            }
+            groups_information.append(group_info)
+
+        return groups_information
 
     #--------------------
     # Collect Roles : returns list
@@ -54,16 +118,81 @@ class IAMCollector(BaseCollector):
         return client.list_roles()['Roles']
 
     #--------------------
-    # Collect Policies : returns list
+    # Collect Policies : returns list of dictionaries
     #--------------------
     def collect_policies(self, client):
-        return client.list_policies()['Policies']
+        #------------------------
+        # Gather Policies
+        #------------------------
+        policies_present = client.list_policies()['Policies']
+        policies_info = []
+
+        for policy in policies_present:
+            policy_name = policy['PolicyName']
+            policy_arn = policy['Arn']
+
+            # Get policy details
+            policy_info = client.get_policy(PolicyArn=policy_arn)
+            policy_default_verions = policy_info['Policy']['DefaultVersionId']
+
+            # Get json for policy
+            policy_version = client.get_policy_version(PolicyArn=policy_arn, VersionId=policy_default_verions)
+            policy_doc = policy_version['PolicyVersion']['Document']
+
+            # Create dictionary to hold info
+            policy_info_dict = {
+                "policy_name": policy_name,
+                "policy_arn": policy_arn,
+                "policy_doc": policy_doc
+            }
+            policies_info.append(policy_info_dict)
+
+        return policies_info
 
     #--------------------
     # Collect Access Keys : returns list
     #--------------------
     def collect_access_keys(self, client):
-        return client.list_access_keys()['AccessKeyMetadata']
+        #return client.list_access_keys()['AccessKeyMetadata']
+        #------------------------
+        # Gather users
+        #------------------------
+        users_access_keys = []
+        users_present = client.list_users()['Users']
+
+        for user in users_present:
+            username = user["UserName"]
+
+            # Gather keys
+            user_keys = client.list_access_keys(UserName=username)["AccessKeyMetadata"]
+
+            # Gather last used
+            user_keys_info = []
+            for key in user_keys:
+                key_id = key["AccessKeyId"]
+                key_status = key["Status"]
+                key_create_date = key["CreateDate"]
+                last_used = client.get_access_key_last_used(AccessKeyId=key_id)["AccessKeyLastUsed"]
+                last_used_date = last_used.get("LastUsedDate")
+
+                user_key_info = {
+                    "key_id": key_id,
+                    "key": key,
+                    "key_create_date": key_create_date,
+                    "key_status": key_status,
+                    "key_last_used": last_used,
+                    "key_last_used_date": last_used_date
+                }
+                user_keys_info.append(user_key_info)
+
+            # Create user dictionary
+            user_access_key = {
+                "username": username,
+                "access_keys": user_keys_info
+            }
+            users_access_keys.append(user_access_key)
+
+        return users_access_keys
 
     #--------------------
     # Collect Login Profiles : returns list of dictionaries
@@ -100,3 +229,9 @@ class IAMCollector(BaseCollector):
             mfa_device_dict['mfa_devices'] = user_devices
 
         return mfa_devices
+
+    # --------------------
+    # Collect Account Summary
+    # --------------------
+    def collect_summary(self, client):
+        return client.get_account_summary()

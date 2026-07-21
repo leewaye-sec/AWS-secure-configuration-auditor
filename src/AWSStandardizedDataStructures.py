@@ -21,6 +21,7 @@ class IAMInventory:
     access_keys: list = field(default_factory=list)
     login_profiles: list = field(default_factory=list)
     mfa_devices: list = field(default_factory=list)
+    account_summary: dict = field(default_factory=dict)
 
 #------------------------
 # Data Class Definition : S3Inventory
