@@ -6,6 +6,8 @@
 #
 #==========================================================================
 # Import base detector
+import json
+
 import boto3
 from .baseCollector import BaseCollector
 from ..AWSStandardizedDataStructures import IAMInventory
@@ -80,7 +82,6 @@ class IAMCollector(BaseCollector):
             }
             user_information.append(user_policy_def)
 
-
         return user_information
 
     #--------------------
@@ -138,12 +139,15 @@ class IAMCollector(BaseCollector):
             # Get json for policy
             policy_version = client.get_policy_version(PolicyArn=policy_arn, VersionId=policy_default_verions)
             policy_doc = policy_version['PolicyVersion']['Document']
+            policy_doc_json = None
+            if isinstance(policy_doc, str):
+                policy_doc_json = json.loads(policy_doc)
 
             # Create dictionary to hold info
             policy_info_dict = {
                 "policy_name": policy_name,
                 "policy_arn": policy_arn,
-                "policy_doc": policy_doc
+                "policy_doc": policy_doc_json
             }
             policies_info.append(policy_info_dict)
 
@@ -166,7 +170,7 @@ class IAMCollector(BaseCollector):
             # Gather keys
             user_keys = client.list_access_keys(UserName=username)["AccessKeyMetadata"]
 
-            # Gather last used
+            # Gather last used key
             user_keys_info = []
             for key in user_keys:
                 key_id = key["AccessKeyId"]
@@ -185,9 +189,12 @@ class IAMCollector(BaseCollector):
                 }
                 user_keys_info.append(user_key_info)
 
+            # Gather last password used
+
             # Create user dictionary
             user_access_key = {
                 "username": username,
+                "user_info": user,
                 "access_keys": user_keys_info
             }
             users_access_keys.append(user_access_key)
@@ -222,11 +229,13 @@ class IAMCollector(BaseCollector):
         mfa_devices = []
         users = client.list_users()['Users']
         for user in users:
-            mfa_device_dict = {}
             username = user['UserName']
             user_devices = client.list_mfa_devices(UserName=username)
-            mfa_device_dict['username'] = username
-            mfa_device_dict['mfa_devices'] = user_devices
+            mfa_device_dict = {
+                'username': username,
+                'mfa_devices': user_devices
+            }
+            mfa_devices.append(mfa_device_dict)
 
         return mfa_devices
 

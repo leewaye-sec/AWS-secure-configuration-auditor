@@ -6,6 +6,7 @@
 #
 #==========================================================================
 # Import base detector
+from datetime import datetime, timezone
 from baseChecker import BaseChecker
 from collections.abc import Callable
 from ..AWSStandardizedDataStructures import IAMInventory
@@ -45,26 +46,220 @@ class IAMAuditEngine(BaseChecker):
     # Helper functions
     #--------------------------
     def adminstrator_access_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-            return[]
+        administrator_access_findings = []
+        # Check user for admin
+        #   - Also grab group membership
+        # Iterate through groups and determine policies (Admin Access)
+        admin_groups = []
+        for group in inventory.groups:
+            for policy in group['group_policies']:
+                if "AdministratorAccess" in policy['PolicyArn']:
+                    admin_groups.append(group)
+
+        return administrator_access_findings
 
     def mfa_enabled_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-        return[]
+        mfa_disabled_findings = []
+
+        # Iterate through user / MFA
+        for user_mfa in inventory.mfa_devices:
+            username = user_mfa['username']
+            # No MFA Devices
+            if len(user_mfa['mfa_devices']) == 0:
+                mfa_disabled_findings.append(AuditFinding(
+                    severity_level="HIGH",
+                    service="IAM",
+                    resource_type="User",
+                    resource_name=f"{username}",
+                    finding_name="MFA_DISABLED",
+                    finding_description=f"MFA not enabled for IAM user",
+                    recommendation="Enable MFA for user"
+                ))
+
+        return mfa_disabled_findings
 
     def old_access_key_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-        return[]
+        old_access_key_findings = []
+        #--------------------
+        # Define inactivity variables
+        #--------------------
+        key_age = 90
+        time_now = datetime.now(timezone.utc)
+
+        # Iterate through access keys
+        aws_access_keys = inventory.access_keys
+
+        # Iterate through the users and their access keys
+        for aws_key_account in aws_access_keys:
+            username = aws_key_account['username']
+
+            for key in aws_key_account['access_keys']:
+                key_last_used = key['key_last_used_date']
+
+                # Time comparison
+                key_inactivity = (time_now - key_last_used).days
+                if key_inactivity >= key_age:
+                    old_access_key_findings.append(AuditFinding(
+                        severity_level = "MEDIUM",
+                        service = "IAM",
+                        resource_type = "Access Key",
+                        resource_name = f"{username}",
+                        finding_name = "OLD_ACCESS_KEY",
+                        finding_description = f"IAM access key exceeds age period of {key_age} days",
+                        recommendation = "Rotate or remove old access key"
+                    ))
+
+        return old_access_key_findings
 
     def inactive_access_key_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-        return[]
+        inactive_access_key_findings = []
+
+        # Work through user keys and check status
+        for user_key_info in inventory.access_keys:
+            username = user_key_info['username']
+            # Work through reported keys
+            for key in user_key_info['access_keys']:
+                if key['key_status'] != "Active":
+                    inactive_access_key_findings.append(AuditFinding(
+                        severity_level="LOW",
+                        service="IAM",
+                        resource_type="Access Key",
+                        resource_name=f"{username}",
+                        finding_name="INACTIVE_ACCESS_KEY",
+                        finding_description=f"IAM access key marked as inactive",
+                        recommendation="Remove or disable inactive access keys"
+                    ))
+        return inactive_access_key_findings
 
     def wild_card_policy_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-        return[]
+        wildcard_policy_findings = []
+
+        # Work through policies and not if policy contains wildcard
+        for policy in inventory.policies:
+            policy_name = policy['policy_name']
+            policy_doc = policy['policy_doc']
+
+            # Isolate policy statements from policy doc and put into list
+            policy_statements = policy_doc.get('Statement', [])
+            if isinstance(policy_statements, dict):
+                policy_statements = [policy_statements]
+
+            # Work through each statement and report wildcards
+            #for i, statement in enumerate(policy_statements):
+            for statement in policy_statements:
+                statement_actions = statement.get('Action', [])
+                statement_resources = statement.get('Resource', [])
+
+                # Ensure proper format for iteration
+                if isinstance(statement_actions, str): statement_actions = [statement_actions]
+                if isinstance(statement_resources, str): statement_resources = [statement_resources]
+
+                # Search for wildcard
+                if "*" in statement_actions:
+                    wildcard_policy_findings.append(AuditFinding(
+                        severity_level="HIGH",
+                        service="IAM",
+                        resource_type="IAM Policy Action",
+                        resource_name=f"{policy_name}",
+                        finding_name="WILDCARD_POLICY",
+                        finding_description=f"Wildcard permissions found in IAM Policy Action",
+                        recommendation="Update permissions for least privilege"
+                    ))
+                if "*" in statement_resources:
+                    wildcard_policy_findings.append(AuditFinding(
+                        severity_level="HIGH",
+                        service="IAM",
+                        resource_type="IAM Policy Resource",
+                        resource_name=f"{policy_name}",
+                        finding_name="WILDCARD_POLICY",
+                        finding_description=f"Wildcard permissions found in IAM Policy Resource",
+                        recommendation="Update permissions for least privilege"
+                    ))
+
+
+        return wildcard_policy_findings
 
     def root_access_key_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-        return[]
+        root_access_key_findings = []
+        #--------------------
+        # Gather account information
+        #--------------------
+        summary_map = inventory.account_summary['SummaryMap']
+
+        # Determine if root keys are present
+        root_access_key_present = summary_map.get('AccountAccessKeyPresent', 0)
+
+        if root_access_key_present > 0:
+            root_access_key_findings.append(AuditFinding(
+                severity_level="CRITICAL",
+                service="IAM",
+                resource_type="Root Account",
+                resource_name= "Root Account",
+                finding_name="ROOT_ACCESS_KEY",
+                finding_description=f"Active access keys for root account",
+                recommendation="Remove root access keys"
+            ))
+
+        return root_access_key_findings
 
     def console_access_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-        return[]
+        console_access_findings = []
+        #--------------------
+        # Iterate through user inventory
+        #--------------------
+        for user in inventory.users:
+            username = user['username']
+            # If they have console access, report it
+            if user['console_access']:
+                console_access_findings.append(AuditFinding(
+                    severity_level="LOW",
+                    service="IAM",
+                    resource_type="User",
+                    resource_name= username,
+                    finding_name="CONSOLE_ACCESS_ENABLED",
+                    finding_description=f"IAM user has Console Access enabled",
+                    recommendation="Console access review and possible removal"
+                ))
+        return console_access_findings
 
     def unused_user_check(self, inventory: IAMInventory) -> list[AuditFinding]:
-        return[]
+
+        unused_user_findings = []
+        #--------------------
+        # Check creation date and compare to last key date and last password
+        #--------------------
+        # Iterate through access keys
+        aws_access_keys = inventory.access_keys
+
+        # Iterate through the users and their access keys
+        for aws_key_account in aws_access_keys:
+            activity_tracker = []
+            username = aws_key_account['username']
+            user_creation = aws_key_account['user_info']['CreateDate']
+
+            # Password date comparison
+            if aws_key_account['user_info']['PasswordLastUsed']:
+                activity_tracker.append(aws_key_account['user_info']['PasswordLastUsed'])
+
+            # Key date comparison
+            for key in aws_key_account['access_keys']:
+                key_last_used = key['key_last_used_date']
+                if key['key_last_used_date']:
+                    activity_tracker.append(key['key_last_used_date'])
+
+            # Compare the gathered account activity times and compare to creation
+            for activity in activity_tracker:
+                #   If no activity, unused account
+                if activity <= user_creation:
+                    unused_user_findings.append(AuditFinding(
+                        severity_level = "LOW",
+                        service = "IAM",
+                        resource_type = "User",
+                        resource_name = f"{username}",
+                        finding_name = "UNUSED_USER",
+                        finding_description = f"Inactive IAM user likely",
+                        recommendation = "Review account and remove if necessary"
+                    ))
+
+        return unused_user_findings
 
