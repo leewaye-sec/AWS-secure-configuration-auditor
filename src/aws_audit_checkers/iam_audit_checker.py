@@ -50,11 +50,113 @@ class IAMAuditEngine(BaseChecker):
         # Check user for admin
         #   - Also grab group membership
         # Iterate through groups and determine policies (Admin Access)
+        #---------------------
+        # Group Checks
+        #---------------------
         admin_groups = []
         for group in inventory.groups:
-            for policy in group['group_policies']:
+            group_name = group['group_name']
+
+            # Attached Policies
+            for policy in group['group_attached_policies']:
                 if "AdministratorAccess" in policy['PolicyArn']:
+                    administrator_access_findings.append(AuditFinding(
+                        severity_level="HIGH",
+                        service="IAM",
+                        resource_type="Group",
+                        resource_name=f"{group_name}",
+                        finding_name="",
+                        finding_description=f"Group has administrative permissions",
+                        recommendation="Review admin privileges and adjust where appropriate"
+                    ))
+                    # Add group to admin list
                     admin_groups.append(group)
+
+            # Inline Policy Check
+            for inline in group['group_policies']:
+                policy_statement = inline.get('Statement', [])
+
+                # Normalize
+                if isinstance(policy_statement, dict):
+                    policy_statement = [policy_statement]
+
+                # Iterate through and further normalize to simplify checks
+                for statement in policy_statement:
+                    if statement.get("Effect") == "Allow":
+                        policy_action = statement.get("Action", [])
+                        policy_resource = statement.get("Resource", [])
+
+                        # Get into lists if applicable
+                        if isinstance(policy_action, str):
+                            policy_actions = [policy_action]
+                        else:
+                            policy_actions = policy_action
+
+                        if isinstance(policy_resource, str):
+                            policy_resources = [policy_resource]
+                        else:
+                            policy_resources = policy_resource
+
+                        # Check for wildcard permissions
+                        if "*" in policy_actions and "*" in policy_resources:
+                            administrator_access_findings.append(AuditFinding(
+                                severity_level="HIGH",
+                                service="IAM",
+                                resource_type="Group",
+                                resource_name=f"{group_name}",
+                                finding_name="",
+                                finding_description=f"Group has administrative permissions",
+                                recommendation="Review admin privileges and adjust where appropriate"
+                            ))
+
+        #---------------------
+        # User Checks
+        #---------------------
+        # First check user policies
+        for user in inventory.users:
+            username = user['username']
+
+            # Check attached policies
+            for a_policy in user['user_attached_policies'].get('AttachedPolicies', []):
+                if "AdministratorAccess" in a_policy['PolicyName']:
+                    administrator_access_findings.append(AuditFinding(
+                        severity_level="HIGH",
+                        service="IAM",
+                        resource_type="User",
+                        resource_name=f"{username}",
+                        finding_name="",
+                        finding_description=f"IAM user has administrative permissions",
+                        recommendation="Review user admin privileges and adjust where appropriate"
+                    ))
+
+            # Check inline policies
+            for i_policy in user['user_inline_policies']:
+                i_policy_statements = i_policy.get('PolicyDocument', {}).get('Statement', [])
+                for i_statement in i_policy_statements:
+                    if i_statement.get('Action') == "*" and i_statement.get('Effect') == 'Allow':
+                        administrator_access_findings.append(AuditFinding(
+                            severity_level="HIGH",
+                            service="IAM",
+                            resource_type="User",
+                            resource_name=f"{username}",
+                            finding_name="",
+                            finding_description=f"IAM user has administrative permissions",
+                            recommendation="Review user admin privileges and adjust where appropriate"
+                        ))
+
+            # Check if user is in group with admin policies (from above)
+            for u_group in user['user_groups']:
+                group_name = u_group['group_name']
+                if u_group in admin_groups:
+                    administrator_access_findings.append(AuditFinding(
+                        severity_level="HIGH",
+                        service="IAM",
+                        resource_type="User",
+                        resource_name=f"{username} - {group_name}",
+                        finding_name="",
+                        finding_description=f"IAM user membership in group with administrative permissions",
+                        recommendation="Review user group membership/admin privileges and adjust where appropriate"
+                    ))
 
         return administrator_access_findings
 

@@ -54,8 +54,15 @@ class IAMCollector(BaseCollector):
         for user in users_present:
             username = user['UserName']
 
-            # User Policies
-            user_policy = client.list_attached_user_policies(UserName=username)
+            # User Attached Policies
+            user_attached_policies = client.list_attached_user_policies(UserName=username)
+
+            # User Inline Policies
+            user_inline_policies = []
+            user_inline_policy = client.list_user_policies(UserName=username)
+            for user_inline_policy in user_inline_policy.get('PolicyNames', []):
+                user_policy = client.get_user_policy(UserName=username, PolicyName=user_inline_policy)
+                user_inline_policies.append(user_policy)
 
             # User Group Membership
             user_groups = None
@@ -76,8 +83,9 @@ class IAMCollector(BaseCollector):
             user_policy_def = {
                 "username": username,
                 "user_info": user,
-                "policies": user_policy,
-                "groups": user_groups,
+                "user_attached_policies" : user_attached_policies,
+                "user_inline_policies" : user_inline_policies,
+                "user_groups": user_groups,
                 "console_access": user_console_access
             }
             user_information.append(user_policy_def)
@@ -100,13 +108,21 @@ class IAMCollector(BaseCollector):
         for group in groups_present:
             group_name = group['GroupName']
 
-            # Gather group policies
-            group_policies = client.list_attached_group_policies(GroupName=group_name).get('AttachedPolicies', [])
+            # Gather group attached policies
+            group_attached_policies = client.list_attached_group_policies(GroupName=group_name).get('AttachedPolicies', [])
+
+            # Gather group inline policies
+            group_inline_policies = []
+            group_policy = client.list_attached_group_policies(GroupName=group_name)
+            for policy_name in group_policy.get("PolicyNames", []):
+                inline_policy = client.get_group_policy(GroupName=group_name, PolicyName=policy_name)
+                group_inline_policies.append(inline_policy["PolicyDocument"])
 
             group_info = {
                 "group_name": group_name,
                 "group_info": group,
-                "group_policies": group_policies
+                "group_policies": group_inline_policies,
+                "group_attached_policies": group_attached_policies
             }
             groups_information.append(group_info)
 
