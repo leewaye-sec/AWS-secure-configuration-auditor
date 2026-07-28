@@ -25,10 +25,12 @@ class S3Collector(BaseCollector):
         # Begin collection
         s3_inventory.buckets = self.collect_buckets(session.s3_resource)
         s3_inventory.bucket_policies = self.collect_bucket_policies(session.s3_resource, session.s3_client)
+        s3_inventory.bucket_policy_statuses = self.collect_bucket_policy_statuses(session.s3_resource, session.s3_client)
         s3_inventory.acls = self.collect_acls(session.s3_resource, session.s3_client)
         s3_inventory.public_access_block = self.collect_public_access_block(session.s3_resource, session.s3_client)
         s3_inventory.encryption = self.collect_encryption(session.s3_resource, session.s3_client)
         s3_inventory.versioning = self.collect_versioning(session.s3_resource)
+        s3_inventory.ownership = self.collect_ownership(session.s3_resource, session.s3_client)
         s3_inventory.logging = self.collect_logging(session.s3_resource, session.s3_client)
 
         return s3_inventory
@@ -61,6 +63,33 @@ class S3Collector(BaseCollector):
                     "bucket_policy": None
                 }
                 collected_policies.append(bucket_policy)
+
+        return collected_policies
+
+    # Return list of dictionaries
+    def collect_bucket_policy_statuses(self, resource, client):
+        # Gather buckets
+        buckets = resource.buckets.all()
+        collected_policies = []
+        # Loop through and grab bucket name and policies
+        for bucket in buckets:
+            name = bucket.name
+            try:
+                # Gather policies associated with bucket
+                policy_status = client.get_bucket_policy_status(Bucket=name)
+                # Add to policy dict
+                bucket_policy_status = {
+                    "bucket_name": name,
+                    "bucket_policy_status": policy_status
+                }
+                collected_policies.append(bucket_policy_status)
+            except ClientError as e:
+                # Add empty policy dict
+                bucket_policy_status = {
+                    "bucket_name": name,
+                    "bucket_policy_status": None
+                }
+                collected_policies.append(bucket_policy_status)
 
         return collected_policies
 
@@ -163,6 +192,31 @@ class S3Collector(BaseCollector):
                 collected_versioning.append(bucket_version)
 
         return collected_versioning
+
+    def collect_ownership(self, resource, client):
+        # Gather buckets
+        buckets = resource.buckets.all()
+
+        collected_ownerships = []
+        # Iterate through the buckets and use client to get public access block
+        for bucket in buckets:
+            name = bucket.name
+
+            try:
+                bucket_ownerships = client.get_bucket_ownership_controls(Bucket=name)
+                ownership = {
+                    "bucket_name": name,
+                    "bucket_ownerships": bucket_ownerships
+                }
+                collected_ownerships.append(ownership)
+            except ClientError as e:
+                ownership = {
+                    "bucket_name" : name,
+                    "bucket_ownerships" : None
+                }
+                collected_ownerships.append(ownership)
+
+        return collected_ownerships
 
     def collect_logging(self, resource, client):
         # Gather buckets

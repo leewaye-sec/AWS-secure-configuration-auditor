@@ -65,7 +65,7 @@ class IAMAuditEngine(BaseChecker):
                         service="IAM",
                         resource_type="Group",
                         resource_name=f"{group_name}",
-                        finding_name="",
+                        finding_name="ADMINISTRATOR_ACCESS",
                         finding_description=f"Group has administrative permissions",
                         recommendation="Review admin privileges and adjust where appropriate"
                     ))
@@ -104,7 +104,7 @@ class IAMAuditEngine(BaseChecker):
                                 service="IAM",
                                 resource_type="Group",
                                 resource_name=f"{group_name}",
-                                finding_name="",
+                                finding_name="ADMINISTRATOR_ACCESS",
                                 finding_description=f"Group has administrative permissions",
                                 recommendation="Review admin privileges and adjust where appropriate"
                             ))
@@ -124,7 +124,7 @@ class IAMAuditEngine(BaseChecker):
                         service="IAM",
                         resource_type="User",
                         resource_name=f"{username}",
-                        finding_name="",
+                        finding_name="ADMINISTRATOR_ACCESS",
                         finding_description=f"IAM user has administrative permissions",
                         recommendation="Review user admin privileges and adjust where appropriate"
                     ))
@@ -139,7 +139,7 @@ class IAMAuditEngine(BaseChecker):
                             service="IAM",
                             resource_type="User",
                             resource_name=f"{username}",
-                            finding_name="",
+                            finding_name="ADMINISTRATOR_ACCESS",
                             finding_description=f"IAM user has administrative permissions",
                             recommendation="Review user admin privileges and adjust where appropriate"
                         ))
@@ -153,7 +153,7 @@ class IAMAuditEngine(BaseChecker):
                         service="IAM",
                         resource_type="User",
                         resource_name=f"{username} - {group_name}",
-                        finding_name="",
+                        finding_name="ADMINISTRATOR_ACCESS",
                         finding_description=f"IAM user membership in group with administrative permissions",
                         recommendation="Review user group membership/admin privileges and adjust where appropriate"
                     ))

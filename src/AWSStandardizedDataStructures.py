@@ -31,10 +31,12 @@ class IAMInventory:
 class S3Inventory:
     buckets: list = field(default_factory=list)
     bucket_policies: list = field(default_factory=list)
+    bucket_policy_statuses: list = field(default_factory=list)
     acls: list = field(default_factory=list)
     public_access_block: list = field(default_factory=list)
     encryption: list = field(default_factory=list)
     versioning: list = field(default_factory=list)
+    ownership: list = field(default_factory=list)
     logging: list = field(default_factory=list)
 
 #------------------------
