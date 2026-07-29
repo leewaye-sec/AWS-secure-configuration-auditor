@@ -47,6 +47,7 @@ class S3Inventory:
 class EC2Inventory:
     instances: list = field(default_factory=list)
     security_groups: list = field(default_factory=list)
+    security_group_details: list = field(default_factory=list)
     network_interfaces: list = field(default_factory=list)
     ebs_volumes: list = field(default_factory=list)
     metadata_options: list = field(default_factory=list)

@@ -21,8 +21,9 @@ class EC2Collector(BaseCollector):
         ec2_inventory = EC2Inventory()
 
         # Begin collection
-        ec2_inventory.instances = self.collect_instances(session.ec2_client)
+        ec2_inventory.instances = self.collect_instances(session.audit_session, session.regions)
         ec2_inventory.security_groups = self.collect_security_groups(session.ec2_client)
+        ec2_inventory.security_group_details = self.collect_security_group_details(session.audit_session, session.regions)
         ec2_inventory.network_interfaces = self.collect_network_interfaces(session.ec2_client)
         ec2_inventory.ebs_volumes = self.collect_ebs_volumes(session.ec2_client)
         #ec2_inventory.metadata_options = self.collect_metadata_options(session.ec2_client)
@@ -33,9 +34,22 @@ class EC2Collector(BaseCollector):
     #-------------------------
     # Helper functions
     #-------------------------
-    def collect_instances(self, ec2_client):
+    def collect_instances(self, audit_session, regions):
+
+        ec2_instances = []
         # Gather and return instances
-        ec2_instances = ec2_client.describe_instances()
+        for region in regions:
+            regional_client = audit_session.client('ec2', region_name=region)
+            instances = regional_client.describe_instances()
+
+            # Check that something was returned
+            if len(instances.get('Reservations', [])) > 0:
+                instance_info = {
+                    "region" : region,
+                    "instances": instances
+                }
+                ec2_instances.append(instance_info)
+
         return ec2_instances
 
     def collect_security_groups(self, ec2_client):
@@ -43,8 +57,62 @@ class EC2Collector(BaseCollector):
         security_groups = ec2_client.describe_security_groups()
         return security_groups
 
+    def collect_security_group_details(self, audit_session, regions):
+        security_group_details = []
+        # Work through regions --> instances --> security groups --> details
+        for region in regions:
+            regional_client = audit_session.client('ec2', region_name=region)
+            instances = regional_client.describe_instances()
+
+            # Check that something was returned
+            if len(instances.get('Reservations', [])) > 0:
+
+                # Gather and return security groups
+                security_group_details = []
+
+                # Iterate through nested instances and gather details
+                for reservation in instances.get('Reservations', []):
+                    for instance in reservation.get('Instances', []):
+                        #---------------------
+                        # Gather Details
+                        #---------------------
+                        # instance id
+                        instance_id = instance.get('InstanceId')
+
+                        # Instance State
+                        state = instance.get('State', {}).get('Name')
+
+                        # Isolate name
+                        name = "No Name"
+                        for tag in instance.get('Tags', []):
+                            if tag['Key'] == "Name":
+                                name = tag['Value']
+
+                        #---------------------
+                        # Gather Security Group Details
+                        #---------------------
+                        sec_group_list = instance['SecurityGroups']
+
+                        for sg_info in sec_group_list:
+                            group_id = sg_info['GroupId']
+                            group_name = sg_info['GroupName']
+                            sg_details = regional_client.describe_security_groups(GroupIds=[sg_info])
+
+                            sec_group_details = {
+                                "region": region,
+                                "instance_id": instance_id,
+                                "instance_state": state,
+                                "instance_name": name,
+                                "sec_group_id": group_id,
+                                "sec_group_name": group_name,
+                                "sec_group_details": sg_details
+                            }
+                            security_group_details.append(sec_group_details)
+
+        return security_group_details
+
     def collect_network_interfaces(self, ec2_client):
-        # Gather and return security groups
+        # Gather and return network interfaces
         net_int = ec2_client.describe_network_interfaces()
         return net_int
 
