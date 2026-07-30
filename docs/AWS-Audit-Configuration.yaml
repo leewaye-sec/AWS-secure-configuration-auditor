@@ -14,6 +14,34 @@ Conditions:
 
 Resources:
   #-------------------------------------------------------------
+  # PUBLIC RDS DATABASE (Expected Finding: RDS Publicly Accessible)
+  #-------------------------------------------------------------
+  PublicDatabaseSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Security group allowing public MySQL access'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: '0.0.0.0/0'
+
+  PublicTestDatabase:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceIdentifier: !Sub 'public-db-01-${AWS::AccountId}'
+      AllocatedStorage: '20'
+      DBInstanceClass: 'db.t3.micro' # Lightweight free-tier eligible instance
+      Engine: 'mysql'
+      EngineVersion: '8.0'
+      MasterUsername: 'dbadmin'
+      MasterUserPassword: 'Password123!'
+      PubliclyAccessible: true
+      VPCSecurityGroups:
+        - !GetAtt PublicDatabaseSecurityGroup.GroupId
+      StorageEncrypted: false
+
+  #-------------------------------------------------------------
   # IAM INSTANCE PROFILES
   #   Instances cannot directly hold a Role; they must use an Instance Profile container.
   #-------------------------------------------------------------

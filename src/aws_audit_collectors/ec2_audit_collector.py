@@ -24,6 +24,7 @@ class EC2Collector(BaseCollector):
         ec2_inventory.instances = self.collect_instances(session.audit_session, session.regions)
         ec2_inventory.security_groups = self.collect_security_groups(session.ec2_client)
         ec2_inventory.security_group_details = self.collect_security_group_details(session.audit_session, session.regions)
+        ec2_inventory.database_services = self.collect_database_details(session.audit_session, session.regions)
         ec2_inventory.network_interfaces = self.collect_network_interfaces(session.ec2_client)
         ec2_inventory.ebs_volumes = self.collect_ebs_volumes(session.ec2_client)
         #ec2_inventory.metadata_options = self.collect_metadata_options(session.ec2_client)
@@ -111,7 +112,88 @@ class EC2Collector(BaseCollector):
 
         return security_group_details
 
+    def collect_database_details(self, audit_session, regions):
+
+        database_details = []
+
+        # Iterate through regions and gather database service information
+        for region in regions:
+            regional_rds_client = audit_session.client('rds', region_name=region)
+            regional_ec2_client = audit_session.client('ec2', region_name=region)
+
+            #------------------
+            # Handle RDS Services
+            #------------------
+            database_instances = regional_rds_client.describe_db_instances()
+
+            # Only process instances with databases
+            for db_instance in database_instances.get('DBInstances', []):
+                if db_instance:
+                    # Gather db identifier
+                    db_identifier = db_instance['DBInstanceIdentifier']
+
+                    # Record the data
+                    db_instance_details = {
+                        "db_resource": "RDS",
+                        "db_identifier": db_identifier,
+                        "db_instance": db_instance,
+                        "db_instance_details": db_instance
+                    }
+                    database_details.append(db_instance_details)
+
+            # ------------------
+            # Handle EC2 Databases
+            # ------------------
+            instances = regional_ec2_client.describe_instances()
+
+            # Check that something was returned
+            if len(instances.get('Reservations', [])) > 0:
+
+                # Gather and return security groups
+                security_group_details = []
+
+                # Iterate through nested instances and gather details
+                for reservation in instances.get('Reservations', []):
+                    for instance in reservation.get('Instances', []):
+                        # ---------------------
+                        # Gather Details
+                        # ---------------------
+                        # instance id
+                        instance_id = instance.get('InstanceId')
+
+                        # Instance State
+                        state = instance.get('State', {}).get('Name')
+
+                        # Isolate name
+                        name = "No Name"
+                        for tag in instance.get('Tags', []):
+                            if tag['Key'] == "Name":
+                                name = tag['Value']
+
+                        # ---------------------
+                        # Gather Security Group Details
+                        # ---------------------
+                        sec_group_list = instance['SecurityGroups']
+
+                        # Iterate through security groups
+                        for sg_info in sec_group_list:
+                            group_id = sg_info['GroupId']
+                            group_name = sg_info['GroupName']
+                            sg_rules_details = regional_ec2_client.describe_security_group_rules(GroupIds=[sg_info])
+
+                            # Record the data
+                            db_instance_details = {
+                                "db_resource": "EC2",
+                                "db_identifier": name,
+                                "db_instance": instance,
+                                "db_instance_details": sg_rules_details
+                            }
+                            database_details.append(db_instance_details)
+
+        return database_details
+
     def collect_network_interfaces(self, ec2_client):
+
         # Gather and return network interfaces
         net_int = ec2_client.describe_network_interfaces()
         return net_int

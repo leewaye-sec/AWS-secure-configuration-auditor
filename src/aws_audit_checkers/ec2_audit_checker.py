@@ -47,9 +47,9 @@ class EC2AuditEngine(BaseChecker):
 
         # Iterate through security group dictionaries
         for sec_group in inventory.security_group_details:
-            group_id = sec_group['sec_group_id']
-            group_name = sec_group['sec_group_name']
 
+            # Isolate variables from the inventory
+            group_name = sec_group['sec_group_name']
             sg_details = sec_group['sec_group_details']
 
             # Permission Checks: exposed port 22, public access IPv4, IPv6 public access
@@ -99,12 +99,69 @@ class EC2AuditEngine(BaseChecker):
                     egress_port = permission.get('ToPort', 0)
                     ip_protocol = permission.get('IpProtocol', '')
 
-                    #if ip_protocol == '-1'
+                    # Check if RDP is being used
+                    if ip_protocol == '-1' or (ip_protocol == 'tcp' and ingress_port <= 3389 and egress_port > 3389):
+                        # Determine if unrestricted
+                        for ip_range in permission.get('IpRanges', []):
+                            # If RDP is unrestricted, report finding
+                            if ip_range.get('CidrIp') == '0.0.0.0/0':
+                                rdp_findings.append(AuditFinding(
+                                    severity_level="HIGH",
+                                    service="EC2",
+                                    resource_type="Security Group",
+                                    resource_name=f"{group_name}",
+                                    finding_name="PUBLICLY_ACCESSIBLE_RDP",
+                                    finding_description=f"Inbound RDP allowed from unrestricted sources",
+                                    recommendation="Restrict RDP access to trusted IP ranges"
+                                ))
 
         return rdp_findings
 
     def open_database_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
-        return []
+        open_db_findings = []
+        # Common db ports
+        db_ports = [3306, 6432, 27017, 1433]
+
+        for db_info in inventory.database_services:
+            db_resource = db_info['db_resource']
+            db_id = db_info['db_identifier']
+            db_instance = db_info['db_instance']
+            db_instance_details = db_info['db_instance_details']
+
+            if db_resource == "RDS":
+                # Check resource for publicly accessible flag
+                if db_instance.get('PubliclyAccessible'):
+                    open_db_findings.append(AuditFinding(
+                        severity_level="HIGH",
+                        service="EC2",
+                        resource_type="RDS",
+                        resource_name=f"{db_id}",
+                        finding_name="PUBLICLY_ACCESSIBLE_DATABASE",
+                        finding_description=f"Database access [ RDS ] allowed from unrestricted sources",
+                        recommendation="Restrict Database access to trusted IP ranges"
+                    ))
+            elif db_resource == "EC2":
+                for rule in db_instance_details.get('SecurityGroupRules', []):
+                    if not rule.get('IsEgress', False):
+                        rule_cidr = rule.get('CidrIpv4')
+                        ingress_port = rule.get('FromPort')
+                        egress_port = rule.get('ToPort')
+
+                        # If rule allows open access, check if db ports
+                        if rule_cidr == '0.0.0.0/0' and ingress_port is not None:
+                            for port in db_ports:
+                                if ingress_port <= port <= egress_port:
+                                    open_db_findings.append(AuditFinding(
+                                        severity_level="HIGH",
+                                        service="EC2",
+                                        resource_type="SECURITY_GROUP",
+                                        resource_name=f"{db_id}",
+                                        finding_name="PUBLICLY_ACCESSIBLE_DATABASE",
+                                        finding_description=f"Database access [ EC2 ] allowed from unrestricted sources",
+                                        recommendation="Restrict Database access to trusted IP ranges"
+                                    ))
+
+        return open_db_findings
 
     def imdsv2_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
         return []
