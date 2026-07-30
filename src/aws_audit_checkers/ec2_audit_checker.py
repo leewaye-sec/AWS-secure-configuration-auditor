@@ -23,7 +23,8 @@ class EC2AuditEngine(BaseChecker):
             self.open_database_check,
             self.imdsv2_check,
             self.ebs_encryption_check,
-            self.public_ip_check
+            self.public_ip_check,
+            self.associated_iam_role_check
         ]
 
     #--------------------------
@@ -164,11 +165,103 @@ class EC2AuditEngine(BaseChecker):
         return open_db_findings
 
     def imdsv2_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
-        return []
+        imdsv2_findings = []
+
+        # Iterate through metadata information
+        for metadata in inventory.metadata_options:
+
+            instance_name = metadata.get("instance_name")
+            instance_id = metadata.get("instance_id")
+            metadata_options = metadata.get('instance_metadata')
+
+            # Gather metadata for imdsv2 information
+            http_tokens = metadata_options.get('HttpTokens')
+            http_endpoint = metadata_options.get('HttpEndpoint')
+
+            if http_tokens == 'optional':
+                imdsv2_findings.append(AuditFinding(
+                    severity_level="MEDIUM",
+                    service="EC2",
+                    resource_type="INSTANCE",
+                    resource_name=f"{instance_name}",
+                    finding_name="IMDSV2_DISABLED",
+                    finding_description=f"No Instance Metadata Service Version 2 required by instance",
+                    recommendation="Require IMDSv2 for instances"
+                ))
+
+            if http_endpoint == 'disabled':
+                imdsv2_findings.append(AuditFinding(
+                    severity_level="MEDIUM",
+                    service="EC2",
+                    resource_type="INSTANCE",
+                    resource_name=f"{instance_name}",
+                    finding_name="METADATA_ENDPOINT_DISABLED",
+                    finding_description=f"No Metadata Endpoint enabled for instance",
+                    recommendation="Require endpoint for instances"
+                ))
+
+        return imdsv2_findings
 
     def ebs_encryption_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
-        return []
+        ebs_encryption_findings = []
+
+        # Work through inventory of ebs volumes and check encryption
+        for ebs_inventory in inventory.ebs_volumes:
+            for volume in ebs_inventory['volumes']:
+                volume_id = volume['VolumeId']
+                volume_encrypted = volume['Encrypted']
+
+                if not volume_encrypted:
+                    ebs_encryption_findings.append(AuditFinding(
+                        severity_level="HIGH",
+                        service="EC2",
+                        resource_type="EBS_VOLUME",
+                        resource_name=f"{ebs_inventory['instance_name']} - {volume_id}",
+                        finding_name="UNENCRYPTED_EBS_VOLUME",
+                        finding_description=f"EBS volume is not encrypted",
+                        recommendation="Enable encryption on EBS volumes"
+                    ))
+
+        return ebs_encryption_findings
 
     def public_ip_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
-        return []
+        public_ip_findings = []
 
+        for instance_info in inventory.instances:
+            instance = instance_info['instances']
+            public_ip_addr = instance.get('PublicIpAddress', 'N/A')
+
+            if public_ip_addr != 'N/A':
+                public_ip_findings.append(AuditFinding(
+                    severity_level="HIGH",
+                    service="EC2",
+                    resource_type="EC2_INSTANCE",
+                    resource_name=f"{instance['instance_name']}",
+                    finding_name="PUBLIC_MANAGEMENT_INTERFACE",
+                    finding_description=f"Instance has public IP and exposes management services",
+                    recommendation="Restrict access or remove public IP"
+                ))
+
+        return public_ip_findings
+
+    def associated_iam_role_check(self, inventory: EC2Inventory) -> list[AuditFinding]:
+        iam_role_findings =[]
+
+        # Iterate through instances and check for
+        for instance_dict in inventory.instances:
+            name = instance_dict['instance_name']
+            instance = instance_dict['instances']
+
+            # Get Profile if present
+            if not instance.get('IamInstanceProfile'):
+                iam_role_findings.append(AuditFinding(
+                    severity_level="LOW",
+                    service="EC2",
+                    resource_type="EC2_INSTANCE",
+                    resource_name=f"{name}",
+                    finding_name="MISSING_IAM_ROLE",
+                    finding_description=f"Instance missing IAM role",
+                    recommendation="Attach IAM role of least-privilege if AWS API access required"
+                ))
+
+        return iam_role_findings

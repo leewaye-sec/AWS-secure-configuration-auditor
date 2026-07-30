@@ -26,8 +26,8 @@ class EC2Collector(BaseCollector):
         ec2_inventory.security_group_details = self.collect_security_group_details(session.audit_session, session.regions)
         ec2_inventory.database_services = self.collect_database_details(session.audit_session, session.regions)
         ec2_inventory.network_interfaces = self.collect_network_interfaces(session.ec2_client)
-        ec2_inventory.ebs_volumes = self.collect_ebs_volumes(session.ec2_client)
-        #ec2_inventory.metadata_options = self.collect_metadata_options(session.ec2_client)
+        ec2_inventory.ebs_volumes = self.collect_ebs_volumes(session.audit_session, session.regions)
+        ec2_inventory.metadata_options = self.collect_metadata_options(session.audit_session, session.regions)
         ec2_inventory.key_pairs = self.collect_key_pairs(session.ec2_client)
 
         return ec2_inventory
@@ -45,11 +45,30 @@ class EC2Collector(BaseCollector):
 
             # Check that something was returned
             if len(instances.get('Reservations', [])) > 0:
-                instance_info = {
-                    "region" : region,
-                    "instances": instances
-                }
-                ec2_instances.append(instance_info)
+                for reservation in instances.get('Reservations', []):
+                    for instance in reservation.get('Instances', []):
+                        # ---------------------
+                        # Gather Details
+                        # ---------------------
+                        # instance id
+                        instance_id = instance.get('InstanceId')
+
+                        # Instance State
+                        state = instance.get('State', {}).get('Name')
+
+                        # Isolate name
+                        name = "No Name"
+                        for tag in instance.get('Tags', []):
+                            if tag['Key'] == "Name":
+                                name = tag['Value']
+
+                        instance_info = {
+                            "region" : region,
+                            "instance_id": instance_id,
+                            "instance_name": name,
+                            "instances": instances
+                        }
+                        ec2_instances.append(instance_info)
 
         return ec2_instances
 
@@ -193,20 +212,88 @@ class EC2Collector(BaseCollector):
         return database_details
 
     def collect_network_interfaces(self, ec2_client):
-
         # Gather and return network interfaces
         net_int = ec2_client.describe_network_interfaces()
         return net_int
 
-    def collect_ebs_volumes(self, ec2_client):
+    def collect_ebs_volumes(self, audit_session, regions):
+        ebs_volume_details = []
         # Gather and return ebs volumes
-        ebs_vols = ec2_client.describe_volumes()
-        return ebs_vols
+        for region in regions:
+            regional_client = audit_session.client('ec2', region_name=region)
+            regional_instances = regional_client.describe_instances()
 
-    #def collect_metadata_options(self, ec2_client):
-    #    # Gather and return metadata
-    #    metadata = ec2_client.describe_instances()
-    #    return metadata
+            # Check that something was returned
+            if len(regional_instances.get('Reservations', [])) > 0:
+                for reservation in regional_instances.get('Reservations', []):
+                    for instance in reservation.get('Instances', []):
+                        # ---------------------
+                        # Gather Details
+                        # ---------------------
+                        # instance id
+                        instance_id = instance.get('InstanceId')
+
+                        # Isolate name
+                        name = "No Name"
+                        for tag in instance.get('Tags', []):
+                            if tag['Key'] == "Name":
+                                name = tag['Value']
+
+                        # Iterate through volume blocks
+                        volume_ids = []
+                        for blocks in instance.get('BlockDeviceMappings', []):
+                            volume_ids.append(blocks['Ebs']['VolumeId'])
+
+                        # Check volume IDs
+                        if volume_ids:
+                            volume_info = regional_client.describe_volumes(VolumeIds=volume_ids)
+
+                            # Create dictionary
+                            ebs_volume = {
+                                'instance_id': instance,
+                                'instance_name': name,
+                                'volumes': volume_info
+                            }
+
+
+        return ebs_volume_details
+
+    def collect_metadata_options(self, audit_session, regions):
+        metadata = []
+        # Gather and return metadata
+        for region in regions:
+            regional_client = audit_session.client('ec2', region_name=region)
+            regional_instance = regional_client.describe_instances()
+
+            # Check that something was returned
+            if len(regional_instance.get('Reservations', [])) > 0:
+                for reservation in regional_instance.get('Reservations', []):
+                    for instance in reservation.get('Instances', []):
+                        # ---------------------
+                        # Gather Details
+                        # ---------------------
+                        # instance id
+                        instance_id = instance.get('InstanceId')
+
+                        # Isolate name
+                        name = "No Name"
+                        for tag in instance.get('Tags', []):
+                            if tag['Key'] == "Name":
+                                name = tag['Value']
+
+                        # Gather Metadata
+                        metadata_options = instance.get('MetadataOptions', {})
+
+                        # Create dictionary
+                        metadata_dict = {
+                            "instance_id" : instance_id,
+                            "instance_name": name,
+                            "instance_region": region,
+                            "instance_metadata": metadata_options
+                        }
+                        metadata.append(metadata_dict)
+
+        return metadata
 
     def collect_key_pairs(self, ec2_client):
         # Gather and return key pairs
