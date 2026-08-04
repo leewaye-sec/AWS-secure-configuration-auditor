@@ -7,10 +7,10 @@
 #==========================================================================
 # Import base detector
 from datetime import datetime, timezone
-from baseChecker import BaseChecker
+from aws_audit_checkers.baseChecker import BaseChecker
 from collections.abc import Callable
-from ..AWSStandardizedDataStructures import IAMInventory
-from ..AWSStandardizedDataStructures import AuditFinding
+from AWSStandardizedDataStructures import IAMInventory
+from AWSStandardizedDataStructures import AuditFinding
 
 #------------------------
 # Class Definition : IAMAuditEngine()
@@ -70,7 +70,8 @@ class IAMAuditEngine(BaseChecker):
                         recommendation="Review admin privileges and adjust where appropriate"
                     ))
                     # Add group to admin list
-                    admin_groups.append(group)
+                    #admin_groups.append(group)
+                    admin_groups.append(group_name)
 
             # Inline Policy Check
             for inline in group['group_policies']:
@@ -145,9 +146,14 @@ class IAMAuditEngine(BaseChecker):
                         ))
 
             # Check if user is in group with admin policies (from above)
-            for u_group in user['user_groups']:
-                group_name = u_group['group_name']
-                if u_group in admin_groups:
+            # Gather users' groups / group names
+            user_groups = user['user_groups']
+            user_group_names = [group['GroupName'] for group in user_groups.get('Groups', [])]
+            for group_name in user_group_names:
+                if group_name in admin_groups:
+            #for u_group in user['user_groups']:
+            #    group_name = u_group['group_name']
+            #    if u_group in admin_groups:
                     administrator_access_findings.append(AuditFinding(
                         severity_level="HIGH",
                         service="IAM",
@@ -198,17 +204,28 @@ class IAMAuditEngine(BaseChecker):
             for key in aws_key_account['access_keys']:
                 key_last_used = key['key_last_used_date']
 
-                # Time comparison
-                key_inactivity = (time_now - key_last_used).days
-                if key_inactivity >= key_age:
+                if key_last_used:
+                    # Time comparison
+                    key_inactivity = (time_now - key_last_used).days
+                    if key_inactivity >= key_age:
+                        old_access_key_findings.append(AuditFinding(
+                            severity_level = "MEDIUM",
+                            service = "IAM",
+                            resource_type = "Access Key",
+                            resource_name = f"{username}",
+                            finding_name = "OLD_ACCESS_KEY",
+                            finding_description = f"IAM access key exceeds age period of {key_age} days",
+                            recommendation = "Rotate or remove old access key"
+                        ))
+                else:
                     old_access_key_findings.append(AuditFinding(
-                        severity_level = "MEDIUM",
-                        service = "IAM",
-                        resource_type = "Access Key",
-                        resource_name = f"{username}",
-                        finding_name = "OLD_ACCESS_KEY",
-                        finding_description = f"IAM access key exceeds age period of {key_age} days",
-                        recommendation = "Rotate or remove old access key"
+                        severity_level="MEDIUM",
+                        service="IAM",
+                        resource_type="Access Key",
+                        resource_name=f"{username}",
+                        finding_name="UNUSED_ACCESS_KEY",
+                        finding_description=f"IAM access key is unused",
+                        recommendation="Rotate or remove old access key"
                     ))
 
         return old_access_key_findings
@@ -242,41 +259,42 @@ class IAMAuditEngine(BaseChecker):
             policy_doc = policy['policy_doc']
 
             # Isolate policy statements from policy doc and put into list
-            policy_statements = policy_doc.get('Statement', [])
-            if isinstance(policy_statements, dict):
-                policy_statements = [policy_statements]
+            if policy_doc:
+                policy_statements = policy_doc.get('Statement', [])
+                if isinstance(policy_statements, dict):
+                    policy_statements = [policy_statements]
 
-            # Work through each statement and report wildcards
-            #for i, statement in enumerate(policy_statements):
-            for statement in policy_statements:
-                statement_actions = statement.get('Action', [])
-                statement_resources = statement.get('Resource', [])
+                    # Work through each statement and report wildcards
+                    #for i, statement in enumerate(policy_statements):
+                    for statement in policy_statements:
+                        statement_actions = statement.get('Action', [])
+                        statement_resources = statement.get('Resource', [])
 
-                # Ensure proper format for iteration
-                if isinstance(statement_actions, str): statement_actions = [statement_actions]
-                if isinstance(statement_resources, str): statement_resources = [statement_resources]
+                        # Ensure proper format for iteration
+                        if isinstance(statement_actions, str): statement_actions = [statement_actions]
+                        if isinstance(statement_resources, str): statement_resources = [statement_resources]
 
-                # Search for wildcard
-                if "*" in statement_actions:
-                    wildcard_policy_findings.append(AuditFinding(
-                        severity_level="HIGH",
-                        service="IAM",
-                        resource_type="IAM Policy Action",
-                        resource_name=f"{policy_name}",
-                        finding_name="WILDCARD_POLICY",
-                        finding_description=f"Wildcard permissions found in IAM Policy Action",
-                        recommendation="Update permissions for least privilege"
-                    ))
-                if "*" in statement_resources:
-                    wildcard_policy_findings.append(AuditFinding(
-                        severity_level="HIGH",
-                        service="IAM",
-                        resource_type="IAM Policy Resource",
-                        resource_name=f"{policy_name}",
-                        finding_name="WILDCARD_POLICY",
-                        finding_description=f"Wildcard permissions found in IAM Policy Resource",
-                        recommendation="Update permissions for least privilege"
-                    ))
+                        # Search for wildcard
+                        if "*" in statement_actions:
+                            wildcard_policy_findings.append(AuditFinding(
+                                severity_level="HIGH",
+                                service="IAM",
+                                resource_type="IAM Policy Action",
+                                resource_name=f"{policy_name}",
+                                finding_name="WILDCARD_POLICY",
+                                finding_description=f"Wildcard permissions found in IAM Policy Action",
+                                recommendation="Update permissions for least privilege"
+                            ))
+                        if "*" in statement_resources:
+                            wildcard_policy_findings.append(AuditFinding(
+                                severity_level="HIGH",
+                                service="IAM",
+                                resource_type="IAM Policy Resource",
+                                resource_name=f"{policy_name}",
+                                finding_name="WILDCARD_POLICY",
+                                finding_description=f"Wildcard permissions found in IAM Policy Resource",
+                                recommendation="Update permissions for least privilege"
+                            ))
 
 
         return wildcard_policy_findings
@@ -340,7 +358,8 @@ class IAMAuditEngine(BaseChecker):
             user_creation = aws_key_account['user_info']['CreateDate']
 
             # Password date comparison
-            if aws_key_account['user_info']['PasswordLastUsed']:
+            #if aws_key_account['user_info']['PasswordLastUsed']:
+            if aws_key_account['user_info'].get("PasswordLastUsed"):
                 activity_tracker.append(aws_key_account['user_info']['PasswordLastUsed'])
 
             # Key date comparison

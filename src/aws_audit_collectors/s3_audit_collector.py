@@ -8,9 +8,10 @@
 # Import base detector
 import boto3
 from botocore.exceptions import ClientError
-from .baseCollector import BaseCollector
-from ..AWSStandardizedDataStructures import S3Inventory
-from ..awsAuditSession import AWSAuditSession
+#from baseCollector import BaseCollector
+from aws_audit_collectors.baseCollector import BaseCollector
+from AWSStandardizedDataStructures import S3Inventory
+from awsAuditSession import AWSAuditSession
 
 #------------------------
 # Class Definition : S3Collector
@@ -29,7 +30,7 @@ class S3Collector(BaseCollector):
         s3_inventory.acls = self.collect_acls(session.s3_resource, session.s3_client)
         s3_inventory.public_access_block = self.collect_public_access_block(session.s3_resource, session.s3_client)
         s3_inventory.encryption = self.collect_encryption(session.s3_resource, session.s3_client)
-        s3_inventory.versioning = self.collect_versioning(session.s3_resource)
+        s3_inventory.versioning = self.collect_versioning(session.s3_resource, session.s3_client)
         s3_inventory.ownership = self.collect_ownership(session.s3_resource, session.s3_client)
         s3_inventory.logging = self.collect_logging(session.s3_resource, session.s3_client)
 
@@ -154,14 +155,14 @@ class S3Collector(BaseCollector):
             try:
                 enc_block = client.get_bucket_encryption(Bucket=name)
                 encryption_block = {
-                    "name": name,
+                    "bucket_name": name,
                     "bucket_encryption": enc_block
                 }
                 collected_encryption_blocks.append(encryption_block)
 
             except ClientError as e:
                 encryption_block = {
-                    "name": name,
+                    "bucket_name": name,
                     "bucket_encryption": None
                 }
                 collected_encryption_blocks.append(encryption_block)
@@ -169,24 +170,25 @@ class S3Collector(BaseCollector):
         return collected_encryption_blocks
 
 
-    def collect_versioning(self, resource):
+    def collect_versioning(self, resource, client):
         # Gather buckets
+        #buckets = resource.buckets.all()
         buckets = resource.buckets.all()
 
         collected_versioning = []
         for bucket in buckets:
             name = bucket.name
-            version = resource.BucketVersioning(name)
+            version = client.get_bucket_versioning(Bucket=name)
 
             if version:
                 bucket_version = {
-                    "name": name,
+                    "bucket_name": name,
                     "bucket_versioning": version
                 }
                 collected_versioning.append(bucket_version)
             else:
                 bucket_version = {
-                    "name": name,
+                    "bucket_name": name,
                     "bucket_versioning": None
                 }
                 collected_versioning.append(bucket_version)

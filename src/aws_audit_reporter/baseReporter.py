@@ -14,5 +14,5 @@ from abc import ABC, abstractmethod
 #=====================================
 class BaseReporter(ABC):
     @abstractmethod
-    def generate(self, aws_findings):
+    def generate(self, aws_findings, output_file, stdout_indicator):
         pass

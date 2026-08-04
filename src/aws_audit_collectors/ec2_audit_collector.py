@@ -6,9 +6,9 @@
 #
 #==========================================================================
 # Import base detector
-from .baseCollector import BaseCollector
-from ..AWSStandardizedDataStructures import EC2Inventory
-from ..awsAuditSession import AWSAuditSession
+from aws_audit_collectors.baseCollector import BaseCollector
+from AWSStandardizedDataStructures import EC2Inventory
+from awsAuditSession import AWSAuditSession
 
 #------------------------
 # Class Definition : EC2Collector
@@ -116,7 +116,7 @@ class EC2Collector(BaseCollector):
                         for sg_info in sec_group_list:
                             group_id = sg_info['GroupId']
                             group_name = sg_info['GroupName']
-                            sg_details = regional_client.describe_security_groups(GroupIds=[sg_info])
+                            sg_details = regional_client.describe_security_groups(GroupIds=[group_id])
 
                             sec_group_details = {
                                 "region": region,
@@ -198,7 +198,8 @@ class EC2Collector(BaseCollector):
                         for sg_info in sec_group_list:
                             group_id = sg_info['GroupId']
                             group_name = sg_info['GroupName']
-                            sg_rules_details = regional_ec2_client.describe_security_group_rules(GroupIds=[sg_info])
+                            #sg_rules_details = regional_ec2_client.describe_security_group_rules(GroupIds=[group_id])
+                            sg_rules_details = regional_ec2_client.describe_security_group_rules(Filters=[{'Name':'group-id', 'Values':[group_id]}])
 
                             # Record the data
                             db_instance_details = {

@@ -6,10 +6,10 @@
 #
 #==========================================================================
 # Import base detector
-from .baseChecker import BaseChecker
+from aws_audit_checkers.baseChecker import BaseChecker
 from collections.abc import Callable
-from ..AWSStandardizedDataStructures import EC2Inventory
-from ..AWSStandardizedDataStructures import AuditFinding
+from AWSStandardizedDataStructures import EC2Inventory
+from AWSStandardizedDataStructures import AuditFinding
 
 #------------------------
 # Class Definition : EC2AuditEngine()

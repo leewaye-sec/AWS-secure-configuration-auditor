@@ -26,6 +26,7 @@ from datetime import datetime
 from awsAuditSession import AWSAuditSession
 from awsCollector import AWSCollectors
 from awsAuditEngine import AWSAuditEngine
+from aws_audit_reporter.awsReportGenerator import awsReportGenerator
 
 #--------------------
 # Global Variables
@@ -62,13 +63,24 @@ def awsSecurityAuditWrapper(aws_profile):
         #--------------------------
         # Create inventories via AWSCollectors
         #--------------------------
+        logging.info("Begin Collection")
         collector_engine = AWSCollectors()
         collected_inventories = collector_engine.collect(audit_session)
+        logging.info("\tCollection Complete")
 
         #--------------------------
         # Work through checks
         #--------------------------
+        logging.info("Begin Checks")
         aws_auditor_findings = AWSAuditEngine().audit(collected_inventories)
+        logging.info("\tChecks Complete")
+
+        #--------------------------
+        # Generate Report
+        #--------------------------
+        #logging.info("Begin Report Generation")
+        #aws_findings_report = awsReportGenerator()
+        #aws_findings_report.generate(aws_auditor_findings, OUTPUT, PRINT)
 
     except ProfileNotFound:
         logging.exception(f"Passed profile does not exist [ {aws_profile} ]")

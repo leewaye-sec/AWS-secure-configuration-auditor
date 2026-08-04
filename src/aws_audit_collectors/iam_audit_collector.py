@@ -9,9 +9,9 @@
 import json
 
 import boto3
-from .baseCollector import BaseCollector
-from ..AWSStandardizedDataStructures import IAMInventory
-from ..awsAuditSession import AWSAuditSession
+from aws_audit_collectors.baseCollector import BaseCollector
+from AWSStandardizedDataStructures import IAMInventory
+from awsAuditSession import AWSAuditSession
 
 #------------------------
 # Class Definition : IAMCollector
@@ -83,8 +83,8 @@ class IAMCollector(BaseCollector):
             user_policy_def = {
                 "username": username,
                 "user_info": user,
-                "user_attached_policies" : user_attached_policies,
-                "user_inline_policies" : user_inline_policies,
+                "user_attached_policies": user_attached_policies,
+                "user_inline_policies": user_inline_policies,
                 "user_groups": user_groups,
                 "console_access": user_console_access
             }
