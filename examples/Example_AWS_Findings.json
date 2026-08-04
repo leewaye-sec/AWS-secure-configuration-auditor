@@ -1,0 +1,415 @@
+[
+    {
+        "critical": 0,
+        "high": 15,
+        "medium": 19,
+        "low": 11,
+        "info": 0,
+        "total_findings": 45
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ADMINISTRATOR_ACCESS",
+        "finding_description": "Group has administrative permissions",
+        "service": "IAM",
+        "resource_name": "Administrators",
+        "resource_type": "Group",
+        "recommendation": "Review admin privileges and adjust where appropriate"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ADMINISTRATOR_ACCESS",
+        "finding_description": "IAM user membership in group with administrative permissions",
+        "service": "IAM",
+        "resource_name": "admin-test - Administrators",
+        "resource_type": "User",
+        "recommendation": "Review user group membership/admin privileges and adjust where appropriate"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "UNUSED_ACCESS_KEY",
+        "finding_description": "IAM access key is unused",
+        "service": "IAM",
+        "resource_name": "admin-test",
+        "resource_type": "Access Key",
+        "recommendation": "Rotate or remove old access key"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "UNUSED_ACCESS_KEY",
+        "finding_description": "IAM access key is unused",
+        "service": "IAM",
+        "resource_name": "alice",
+        "resource_type": "Access Key",
+        "recommendation": "Rotate or remove old access key"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "UNUSED_ACCESS_KEY",
+        "finding_description": "IAM access key is unused",
+        "service": "IAM",
+        "resource_name": "bad-admin",
+        "resource_type": "Access Key",
+        "recommendation": "Rotate or remove old access key"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "UNUSED_ACCESS_KEY",
+        "finding_description": "IAM access key is unused",
+        "service": "IAM",
+        "resource_name": "contractor",
+        "resource_type": "Access Key",
+        "recommendation": "Rotate or remove old access key"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "UNUSED_ACCESS_KEY",
+        "finding_description": "IAM access key is unused",
+        "service": "IAM",
+        "resource_name": "unused-user",
+        "resource_type": "Access Key",
+        "recommendation": "Rotate or remove old access key"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "CONSOLE_ACCESS_ENABLED",
+        "finding_description": "IAM user has Console Access enabled",
+        "service": "IAM",
+        "resource_name": "admin-test",
+        "resource_type": "User",
+        "recommendation": "Console access review and possible removal"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "CONSOLE_ACCESS_ENABLED",
+        "finding_description": "IAM user has Console Access enabled",
+        "service": "IAM",
+        "resource_name": "alice",
+        "resource_type": "User",
+        "recommendation": "Console access review and possible removal"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "CONSOLE_ACCESS_ENABLED",
+        "finding_description": "IAM user has Console Access enabled",
+        "service": "IAM",
+        "resource_name": "bad-admin",
+        "resource_type": "User",
+        "recommendation": "Console access review and possible removal"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "CONSOLE_ACCESS_ENABLED",
+        "finding_description": "IAM user has Console Access enabled",
+        "service": "IAM",
+        "resource_name": "bob",
+        "resource_type": "User",
+        "recommendation": "Console access review and possible removal"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "CONSOLE_ACCESS_ENABLED",
+        "finding_description": "IAM user has Console Access enabled",
+        "service": "IAM",
+        "resource_name": "carol",
+        "resource_type": "User",
+        "recommendation": "Console access review and possible removal"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "CONSOLE_ACCESS_ENABLED",
+        "finding_description": "IAM user has Console Access enabled",
+        "service": "IAM",
+        "resource_name": "contractor",
+        "resource_type": "User",
+        "recommendation": "Console access review and possible removal"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "CONSOLE_ACCESS_ENABLED",
+        "finding_description": "IAM user has Console Access enabled",
+        "service": "IAM",
+        "resource_name": "developer",
+        "resource_type": "User",
+        "recommendation": "Console access review and possible removal"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "PUBLICLY_ACCESSIBLE_DATABASE",
+        "finding_description": "Database access [ RDS ] allowed from unrestricted sources",
+        "service": "EC2",
+        "resource_name": "public-db-01-446437544858",
+        "resource_type": "RDS",
+        "recommendation": "Restrict Database access to trusted IP ranges"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "IMDSV2_DISABLED",
+        "finding_description": "No Instance Metadata Service Version 2 required by instance",
+        "service": "EC2",
+        "resource_name": "legacy-server-01",
+        "resource_type": "INSTANCE",
+        "recommendation": "Require IMDSv2 for instances"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "MISSING_IAM_ROLE",
+        "finding_description": "Instance missing IAM role",
+        "service": "EC2",
+        "resource_name": "web-server-01",
+        "resource_type": "EC2_INSTANCE",
+        "recommendation": "Attach IAM role of least-privilege if AWS API access required"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "MISSING_IAM_ROLE",
+        "finding_description": "Instance missing IAM role",
+        "service": "EC2",
+        "resource_name": "app-server-01",
+        "resource_type": "EC2_INSTANCE",
+        "recommendation": "Attach IAM role of least-privilege if AWS API access required"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "MISSING_IAM_ROLE",
+        "finding_description": "Instance missing IAM role",
+        "service": "EC2",
+        "resource_name": "legacy-server-01",
+        "resource_type": "EC2_INSTANCE",
+        "recommendation": "Attach IAM role of least-privilege if AWS API access required"
+    },
+    {
+        "severity_level": "LOW",
+        "finding_name": "MISSING_IAM_ROLE",
+        "finding_description": "Instance missing IAM role",
+        "service": "EC2",
+        "resource_name": "db-server-01",
+        "resource_type": "EC2_INSTANCE",
+        "recommendation": "Attach IAM role of least-privilege if AWS API access required"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "PUBLIC_BUCKET",
+        "finding_description": "Bucket allows public access - Public Access Block [ BlockPublicAcls ]",
+        "service": "S3",
+        "resource_name": "marketing-assets-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Disable public access or confirm setting"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "PUBLIC_BUCKET",
+        "finding_description": "Bucket allows public access - Public Access Block [ BlockPublicAcls ]",
+        "service": "S3",
+        "resource_name": "sandbox-data-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Disable public access or confirm setting"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "PUBLIC_BUCKET",
+        "finding_description": "Bucket allows public access - Bucket Policy Status [ PolicyStatus = IsPublic ]",
+        "service": "S3",
+        "resource_name": "marketing-assets-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Disable public access or confirm setting"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "PUBLIC_BUCKET",
+        "finding_description": "Bucket allows public access - Bucket Policy Status [ PolicyStatus = IsPublic ]",
+        "service": "S3",
+        "resource_name": "sandbox-data-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Disable public access or confirm setting"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "archive-storage-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "cf-templates-1nnjipu4id0hq-us-east-2",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "company-backups-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "engineering-artifacts-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "finance-documents-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "marketing-assets-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "s3-access-logs-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "HIGH",
+        "finding_name": "ENCRYPTION_DISABLED",
+        "finding_description": "Bucket encryption is not configured and/or enabled",
+        "service": "S3",
+        "resource_name": "sandbox-data-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable server-side encryption"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "VERSIONING_DISABLED",
+        "finding_description": "Bucket versioning is not enabled",
+        "service": "S3",
+        "resource_name": "archive-storage-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket versioning"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "VERSIONING_DISABLED",
+        "finding_description": "Bucket versioning is not enabled",
+        "service": "S3",
+        "resource_name": "cf-templates-1nnjipu4id0hq-us-east-2",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket versioning"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "VERSIONING_DISABLED",
+        "finding_description": "Bucket versioning is not enabled",
+        "service": "S3",
+        "resource_name": "engineering-artifacts-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket versioning"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "VERSIONING_DISABLED",
+        "finding_description": "Bucket versioning is not enabled",
+        "service": "S3",
+        "resource_name": "finance-documents-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket versioning"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "VERSIONING_DISABLED",
+        "finding_description": "Bucket versioning is not enabled",
+        "service": "S3",
+        "resource_name": "s3-access-logs-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket versioning"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "VERSIONING_DISABLED",
+        "finding_description": "Bucket versioning is not enabled",
+        "service": "S3",
+        "resource_name": "sandbox-data-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket versioning"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "LOGGING_DISABLED",
+        "finding_description": "Bucket logging is not enabled",
+        "service": "S3",
+        "resource_name": "archive-storage-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket logging"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "LOGGING_DISABLED",
+        "finding_description": "Bucket logging is not enabled",
+        "service": "S3",
+        "resource_name": "cf-templates-1nnjipu4id0hq-us-east-2",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket logging"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "LOGGING_DISABLED",
+        "finding_description": "Bucket logging is not enabled",
+        "service": "S3",
+        "resource_name": "engineering-artifacts-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket logging"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "LOGGING_DISABLED",
+        "finding_description": "Bucket logging is not enabled",
+        "service": "S3",
+        "resource_name": "finance-documents-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket logging"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "LOGGING_DISABLED",
+        "finding_description": "Bucket logging is not enabled",
+        "service": "S3",
+        "resource_name": "marketing-assets-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket logging"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "LOGGING_DISABLED",
+        "finding_description": "Bucket logging is not enabled",
+        "service": "S3",
+        "resource_name": "s3-access-logs-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket logging"
+    },
+    {
+        "severity_level": "MEDIUM",
+        "finding_name": "LOGGING_DISABLED",
+        "finding_description": "Bucket logging is not enabled",
+        "service": "S3",
+        "resource_name": "sandbox-data-01-446437544858",
+        "resource_type": "Bucket",
+        "recommendation": "Enable bucket logging"
+    }
+]

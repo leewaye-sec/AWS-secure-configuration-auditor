@@ -13,6 +13,7 @@ import logging
 import os.path
 import json
 import sys
+from dataclasses import asdict
 from .baseReporter import BaseReporter
 
 class awsReportGenerator(BaseReporter):
@@ -34,7 +35,7 @@ class awsReportGenerator(BaseReporter):
         for finding in passed_findings:
 
             # Add the dataclass converted to a dict to the findings array
-            report["findings"].append(finding.convert_to_dict())
+            report["findings"].append(asdict(finding))
 
             # Update counts
             if finding.severity_level == "CRITICAL":

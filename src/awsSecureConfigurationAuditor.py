@@ -78,9 +78,9 @@ def awsSecurityAuditWrapper(aws_profile):
         #--------------------------
         # Generate Report
         #--------------------------
-        #logging.info("Begin Report Generation")
-        #aws_findings_report = awsReportGenerator()
-        #aws_findings_report.generate(aws_auditor_findings, OUTPUT, PRINT)
+        logging.info("Begin Report Generation")
+        aws_findings_report = awsReportGenerator()
+        aws_findings_report.generate(aws_auditor_findings, OUTPUT, PRINT)
 
     except ProfileNotFound:
         logging.exception(f"Passed profile does not exist [ {aws_profile} ]")

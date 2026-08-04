@@ -208,13 +208,13 @@ class S3Collector(BaseCollector):
                 bucket_ownerships = client.get_bucket_ownership_controls(Bucket=name)
                 ownership = {
                     "bucket_name": name,
-                    "bucket_ownerships": bucket_ownerships
+                    "bucket_ownership": bucket_ownerships
                 }
                 collected_ownerships.append(ownership)
             except ClientError as e:
                 ownership = {
                     "bucket_name" : name,
-                    "bucket_ownerships" : None
+                    "bucket_ownership" : None
                 }
                 collected_ownerships.append(ownership)
 
@@ -231,13 +231,13 @@ class S3Collector(BaseCollector):
 
             if logging:
                 bucket_logging = {
-                    "name": name,
+                    "bucket_name": name,
                     "bucket_logging": logging
                 }
                 collected_versioning.append(bucket_logging)
             else:
                 bucket_logging = {
-                    "name": name,
+                    "bucket_name": name,
                     "bucket_logging": None
                 }
                 collected_versioning.append(bucket_logging)
