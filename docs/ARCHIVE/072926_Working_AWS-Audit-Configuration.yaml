@@ -1,0 +1,616 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS-secure-configuration-auditor IAM environment definition'
+
+Parameters:
+  ExternalAccountId:
+    Type: String
+    Description: '(Optional) Input a valid 12-digit AWS Account ID for the cross-account role testing. If left blank, it defaults to this account.'
+    Default: ''
+    AllowedPattern: '^(\d{12})?$'
+    ConstraintDescription: 'Must be a valid 12-digit AWS Account ID or left completely blank.'
+
+Conditions:
+  UseCurrentAccount: !Equals [ !Ref ExternalAccountId, '' ]
+
+Resources:
+  #-------------------------------------------------------------
+  # IAM INSTANCE PROFILES
+  #   Instances cannot directly hold a Role; they must use an Instance Profile container.
+  #-------------------------------------------------------------
+  AppServerInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref EC2AppRole
+
+  DatabaseInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref DatabaseRole
+  #-------------------------------------------------------------
+  # POLICY DEFINITIONS
+  #-------------------------------------------------------------
+  DeveloperPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      Description: 'Standard development permissions'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ec2:Describe*'
+              - 's3:ListAllMyBuckets'
+              - 's3:GetBucketLocation'
+              - 'dynamodb:ListTables'
+            Resource: '*'
+
+  WildcardAllPolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      Description: 'Wildcard Policy'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: '*'
+            Resource: '*'
+
+  #-------------------------------------------------------------
+  # IAM GROUP DEFINITIONS
+  #-------------------------------------------------------------
+  DevelopersGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'Developers'
+      ManagedPolicyArns:
+        - !Ref DeveloperPolicy
+
+  AdministratorsGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'Administrators'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AdministratorAccess'
+
+  ContractorsGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'Contractors'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+
+  BadAdminGroup:
+    Type: 'AWS::IAM::Group'
+    Properties:
+      GroupName: 'BadAdmins'
+      ManagedPolicyArns:
+        - !Ref WildcardAllPolicy
+
+  #-------------------------------------------------------------
+  # IAM USER DEFINITIONS
+  #-------------------------------------------------------------
+  UserAlice:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'alice'
+      Groups:
+        - !Ref DevelopersGroup
+      LoginProfile:
+        Password: 'Password123!Alice'
+        PasswordResetRequired: false
+
+  UserBob:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'bob'
+      Groups:
+        - !Ref DevelopersGroup
+      LoginProfile:
+        Password: 'Password123!Bob'
+        PasswordResetRequired: false
+
+  UserCarol:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'carol'
+      Groups:
+        - !Ref DevelopersGroup
+      LoginProfile:
+        Password: 'Password123!Carol'
+        PasswordResetRequired: false
+
+  UserAdminTest:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'admin-test'
+      Groups:
+        - !Ref AdministratorsGroup
+      LoginProfile:
+        Password: 'Password123!Admin'
+        PasswordResetRequired: false
+
+  UserContractor:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'contractor'
+      Groups:
+        - !Ref ContractorsGroup
+      LoginProfile:
+        Password: 'Password123!Contractor'
+        PasswordResetRequired: false
+
+  UserUnused:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'unused-user'
+
+  UserBadAdmin:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'bad-admin'
+      Groups:
+        - !Ref BadAdminGroup
+      LoginProfile:
+        Password: 'Password123!BadAdmin'
+        PasswordResetRequired: false
+
+  #-------------------------------------------------------------
+  # INITIAL ACCESS KEYS
+  #-------------------------------------------------------------
+  UserAliceKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserAlice
+
+  AdminKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserAdminTest
+
+  ContractorKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserContractor
+
+  UnusedKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserUnused
+
+  BadAdminKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref UserBadAdmin
+
+  ProductionSSHKey:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: 'ProductionSSH'
+
+  DevelopmentSSHKey:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: 'DevelopmentSSH'
+  #-------------------------------------------------------------
+  # ROLES
+  #-------------------------------------------------------------
+  EC2AppRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'EC2-App-Role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
+
+  AppDataReader:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'app-data-reader'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
+
+  BackgroundTaskLogger:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'background-task-logger'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+  AuditChecker:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'audit-checker'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/SecurityAudit'
+
+  ExternalUserAccess:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'external-user-access'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !If 
+                - UseCurrentAccount
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+                - !Sub 'arn:aws:iam::${ExternalAccountId}:root'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+
+  DatabaseRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'database-access-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess'
+
+  #-------------------------------------------------------------
+  # UTILITY: LOGGING TARGET BUCKET
+  #-------------------------------------------------------------
+  LoggingTargetBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 's3-access-logs-01-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #-------------------------------------------------------------
+  # S3 BUCKETS
+  #-------------------------------------------------------------
+  #---------------------
+  # Company Backups (Expected Findings : None [COMPLIANT])
+  #---------------------
+  CompanyBackupsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'company-backups-01-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      VersioningConfiguration:
+        Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LoggingTargetBucket
+        LogFilePrefix: 'company-backups-01/'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Marketing Assets (Expected Findings: Public Bucket)
+  #---------------------
+  MarketingAssetsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'marketing-assets-01-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+
+  MarketingBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref MarketingAssetsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${MarketingAssetsBucket}/*'
+
+  #---------------------
+  # Archive Storage (Expected Findings: Encryption Disabled)
+  #---------------------
+  ArchiveStorageBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'archive-storage-01-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Engineering Artifacts (Expected Findings: Logging Disabled)
+  #---------------------
+  EngineeringArtifactsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'engineering-artifacts-01-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Finance Documents (Expected Findings: Versioning Disabled)
+  #---------------------
+  FinanceDocumentsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'finance-documents-01-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      VersioningConfiguration:
+        Status: Suspended
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  #---------------------
+  # Sandbox Data (Expected Findings: Public ACL & Public Access Block Disabled)
+  #---------------------
+  SandboxDataBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'sandbox-data-01-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+
+  SandboxBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref SandboxDataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicSandboxExposure
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${SandboxDataBucket}/*'
+
+  #-------------------------------------------------------------
+  # SECURITY GROUPS
+  #-------------------------------------------------------------
+  WebServerSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allow public HTTP/HTTPS traffic'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  ApplicationSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Internal application layer only'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !GetAtt WebServerSG.GroupId
+
+  DatabaseSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Database layer restricted to application server tier'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !GetAtt ApplicationSG.GroupId
+
+  LegacySG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'CRITICAL FINDING: Insecure publicly exposed SSH management port'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  #-------------------------------------------------------------
+  # EC2 INSTANCES
+  #-------------------------------------------------------------
+  #---------------------
+  # Web Server (Expected Findings : None [COMPLIANT])
+  #---------------------
+  WebServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0 # Dummy placeholder standard Linux AMI
+      KeyName: !Ref ProductionSSHKey
+      SecurityGroupIds:
+        - !GetAtt WebServerSG.GroupId
+      IamInstanceProfile: !Ref AppServerInstanceProfile
+      # IMDSv2 Enforcement
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - Key: Name
+          Value: web-server-01
+
+  #---------------------
+  # Application Server (Expected Findings : None [COMPLIANT])
+  #---------------------
+  AppServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0
+      SecurityGroupIds:
+        - !GetAtt ApplicationSG.GroupId
+      IamInstanceProfile: !Ref AppServerInstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - Key: Name
+          Value: app-server-01
+
+  #---------------------
+  # Legacy Server (Expected Findings : Public SSH & IMDSv2 Disabled)
+  #---------------------
+  LegacyServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0
+      KeyName: !Ref DevelopmentSSHKey
+      SecurityGroupIds:
+        - !GetAtt LegacySG.GroupId
+      # IMDSv2 Disabled (Set to optional to allow legacy fallback IMDSv1 tokenless access)
+      MetadataOptions:
+        HttpTokens: optional
+      Tags:
+        - Key: Name
+          Value: legacy-server-01
+
+  #---------------------
+  # Database Server (Expected Findings : Unencrypted EBS via separate storage volume)
+  #---------------------
+  DbServer01:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c55b159cbfafe1f0
+      SecurityGroupIds:
+        - !GetAtt DatabaseSG.GroupId
+      IamInstanceProfile: !Ref DatabaseInstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - Key: Name
+          Value: db-server-01
+
+  #-------------------------------------------------------------
+  # EBS VOLUMES & ATTACHMENTS
+  #-------------------------------------------------------------
+  WebVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 10
+      AvailabilityZone: !GetAtt WebServer01.AvailabilityZone
+      Encrypted: true
+
+  WebVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref WebServer01
+      VolumeId: !Ref WebVolume
+      Device: /dev/sdh
+
+  AppVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 10
+      AvailabilityZone: !GetAtt AppServer01.AvailabilityZone
+      Encrypted: true
+
+  AppVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref AppServer01
+      VolumeId: !Ref AppVolume
+      Device: /dev/sdh
+
+  LegacyVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 10
+      AvailabilityZone: !GetAtt LegacyServer01.AvailabilityZone
+      Encrypted: true
+
+  LegacyVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref LegacyServer01
+      VolumeId: !Ref LegacyVolume
+      Device: /dev/sdh
+
+  #---------------------
+  # Expected Vulnerability Finding: Volume unencrypted
+  #---------------------
+  DatabaseVolume:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      Size: 20
+      AvailabilityZone: !GetAtt DbServer01.AvailabilityZone
+      Encrypted: false
+
+  DatabaseVolumeAttachment:
+    Type: 'AWS::EC2::VolumeAttachment'
+    Properties:
+      InstanceId: !Ref DbServer01
+      VolumeId: !Ref DatabaseVolume
+      Device: /dev/sdh
