@@ -196,10 +196,6 @@ The AWS Secure Configuration Auditor evaluates AWS resources against a collectio
 
 ---
 
-# Example Findings
-
----
-
 # Project Structure
 
 ```text
